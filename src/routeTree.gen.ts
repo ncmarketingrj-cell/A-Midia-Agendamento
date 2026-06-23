@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SucessoRouteImport } from './routes/sucesso'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ClienteRouteImport } from './routes/cliente'
 import { Route as AgendarRouteImport } from './routes/agendar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -23,6 +24,11 @@ const SucessoRoute = SucessoRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClienteRoute = ClienteRouteImport.update({
+  id: '/cliente',
+  path: '/cliente',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgendarRoute = AgendarRouteImport.update({
@@ -44,6 +50,7 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agendar': typeof AgendarRoute
+  '/cliente': typeof ClienteRoute
   '/login': typeof LoginRoute
   '/sucesso': typeof SucessoRoute
   '/admin/': typeof AdminIndexRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agendar': typeof AgendarRoute
+  '/cliente': typeof ClienteRoute
   '/login': typeof LoginRoute
   '/sucesso': typeof SucessoRoute
   '/admin': typeof AdminIndexRoute
@@ -59,21 +67,30 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/agendar': typeof AgendarRoute
+  '/cliente': typeof ClienteRoute
   '/login': typeof LoginRoute
   '/sucesso': typeof SucessoRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/agendar' | '/login' | '/sucesso' | '/admin/'
+  fullPaths: '/' | '/agendar' | '/cliente' | '/login' | '/sucesso' | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/agendar' | '/login' | '/sucesso' | '/admin'
-  id: '__root__' | '/' | '/agendar' | '/login' | '/sucesso' | '/admin/'
+  to: '/' | '/agendar' | '/cliente' | '/login' | '/sucesso' | '/admin'
+  id:
+    | '__root__'
+    | '/'
+    | '/agendar'
+    | '/cliente'
+    | '/login'
+    | '/sucesso'
+    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgendarRoute: typeof AgendarRoute
+  ClienteRoute: typeof ClienteRoute
   LoginRoute: typeof LoginRoute
   SucessoRoute: typeof SucessoRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -93,6 +110,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cliente': {
+      id: '/cliente'
+      path: '/cliente'
+      fullPath: '/cliente'
+      preLoaderRoute: typeof ClienteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agendar': {
@@ -122,6 +146,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgendarRoute: AgendarRoute,
+  ClienteRoute: ClienteRoute,
   LoginRoute: LoginRoute,
   SucessoRoute: SucessoRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -129,3 +154,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

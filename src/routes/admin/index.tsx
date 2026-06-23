@@ -1,8 +1,9 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
-import { LogOut, Calendar, Users, Settings, Scissors } from 'lucide-react'
+import { LogOut, Calendar, Users, Settings, Scissors, Copy, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/admin/')({
   beforeLoad: async () => {
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/admin/')({
 function AdminDashboard() {
   const [role, setRole] = useState<'admin' | 'barbeiro' | null>(null)
   const [loading, setLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     async function loadProfile() {
@@ -40,6 +42,14 @@ function AdminDashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     window.location.href = '/login'
+  }
+
+  const copyPublicLink = () => {
+    const publicUrl = `${window.location.origin}/cliente`
+    navigator.clipboard.writeText(publicUrl)
+    setCopied(true)
+    toast.success('Link público copiado para a área de transferência!')
+    setTimeout(() => setCopied(false), 2000)
   }
 
   if (loading) return <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">Carregando...</div>
@@ -87,9 +97,19 @@ function AdminDashboard() {
 
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-gray-400">Resumo de hoje</p>
+        <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-gray-400">Resumo de hoje</p>
+          </div>
+          
+          <Button 
+            onClick={copyPublicLink}
+            className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold flex items-center gap-2"
+          >
+            {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? 'Copiado!' : 'Copiar Link para Clientes'}
+          </Button>
         </header>
 
         {/* Dashboard Cards */}
