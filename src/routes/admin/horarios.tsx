@@ -54,9 +54,7 @@ function HorariosAdmin() {
   const saveShopSettings = async () => {
     setLoading(true)
     const { error } = await supabase.from('shop_settings').update({
-      hora_abertura: shopSettings.hora_abertura,
-      hora_fechamento: shopSettings.hora_fechamento,
-      dias_funcionamento: shopSettings.dias_funcionamento
+      horarios_por_dia: shopSettings.horarios_por_dia
     }).eq('id', shopSettings.id)
     
     if (error) toast.error('Erro ao salvar horários: ' + error.message)
@@ -64,6 +62,16 @@ function HorariosAdmin() {
     
     setLoading(false)
   }
+
+  const diasSemana = [
+    { idx: '0', label: 'Domingo' },
+    { idx: '1', label: 'Segunda-feira' },
+    { idx: '2', label: 'Terça-feira' },
+    { idx: '3', label: 'Quarta-feira' },
+    { idx: '4', label: 'Quinta-feira' },
+    { idx: '5', label: 'Sexta-feira' },
+    { idx: '6', label: 'Sábado' },
+  ];
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -124,63 +132,68 @@ function HorariosAdmin() {
         </Button>
       </header>
 
-      {shopSettings && (
+      {shopSettings && shopSettings.horarios_por_dia && (
         <section className="bg-[#111] rounded-xl border border-[#222] p-6 mb-8">
-          <h2 className="text-xl font-bold mb-4 text-[#D4AF37]">Horário de Funcionamento</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-400">Abre as</Label>
-                  <Input 
-                    type="time" 
-                    value={shopSettings.hora_abertura} 
-                    onChange={e => setShopSettings({...shopSettings, hora_abertura: e.target.value})} 
-                    className="bg-[#1A1A1A] border-[#333] mt-1 [color-scheme:dark]" 
-                  />
-                </div>
-                <div>
-                  <Label className="text-gray-400">Fecha as</Label>
-                  <Input 
-                    type="time" 
-                    value={shopSettings.hora_fechamento} 
-                    onChange={e => setShopSettings({...shopSettings, hora_fechamento: e.target.value})} 
-                    className="bg-[#1A1A1A] border-[#333] mt-1 [color-scheme:dark]" 
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <Label className="text-gray-400 block mb-2">Dias Abertos</Label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { value: 0, label: 'Dom' }, { value: 1, label: 'Seg' }, { value: 2, label: 'Ter' },
-                  { value: 3, label: 'Qua' }, { value: 4, label: 'Qui' }, { value: 5, label: 'Sex' },
-                  { value: 6, label: 'Sab' }
-                ].map(dia => {
-                  const checked = shopSettings.dias_funcionamento.includes(dia.value);
-                  return (
-                    <button
-                      key={dia.value}
+          <h2 className="text-xl font-bold mb-4 text-[#D4AF37]">Horários por Dia da Semana</h2>
+          <div className="space-y-3">
+            {diasSemana.map(dia => {
+              const config = shopSettings.horarios_por_dia[dia.idx] || { abertura: '09:00', fechamento: '20:00', ativo: false };
+              return (
+                <div key={dia.idx} className={`flex items-center justify-between p-4 rounded-lg border transition ${config.ativo ? 'border-[#D4AF37] bg-[#D4AF37]/5' : 'border-[#333] bg-[#1A1A1A] opacity-70'}`}>
+                  <div className="flex items-center gap-4 w-48">
+                    <button 
                       onClick={() => {
-                        let newDias = [...shopSettings.dias_funcionamento];
-                        if (checked) newDias = newDias.filter(d => d !== dia.value);
-                        else newDias.push(dia.value);
-                        setShopSettings({...shopSettings, dias_funcionamento: newDias.sort()});
+                        const newConfig = { ...shopSettings.horarios_por_dia };
+                        newConfig[dia.idx] = { ...config, ativo: !config.ativo };
+                        setShopSettings({...shopSettings, horarios_por_dia: newConfig});
                       }}
-                      className={`px-4 py-2 rounded-lg border text-sm font-bold transition-colors ${checked ? 'bg-[#D4AF37] border-[#D4AF37] text-black' : 'bg-[#1A1A1A] border-[#333] text-gray-400 hover:border-gray-500'}`}
+                      className={`w-12 h-6 rounded-full relative transition-colors ${config.ativo ? 'bg-[#D4AF37]' : 'bg-[#333]'}`}
                     >
-                      {dia.label}
+                      <div className={`w-4 h-4 rounded-full bg-black absolute top-1 transition-transform ${config.ativo ? 'left-7' : 'left-1'}`} />
                     </button>
-                  )
-                })}
-              </div>
-            </div>
+                    <span className={`font-bold ${config.ativo ? 'text-white' : 'text-gray-500'}`}>{dia.label}</span>
+                  </div>
+                  
+                  {config.ativo ? (
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase text-gray-500 font-bold mb-1">Abertura</span>
+                        <Input 
+                          type="time" 
+                          value={config.abertura} 
+                          onChange={(e) => {
+                            const newConfig = { ...shopSettings.horarios_por_dia };
+                            newConfig[dia.idx] = { ...config, abertura: e.target.value };
+                            setShopSettings({...shopSettings, horarios_por_dia: newConfig});
+                          }}
+                          className="bg-black border-[#444] h-9 w-32 [color-scheme:dark]"
+                        />
+                      </div>
+                      <span className="text-gray-500 mt-5">-</span>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase text-gray-500 font-bold mb-1">Fechamento</span>
+                        <Input 
+                          type="time" 
+                          value={config.fechamento} 
+                          onChange={(e) => {
+                            const newConfig = { ...shopSettings.horarios_por_dia };
+                            newConfig[dia.idx] = { ...config, fechamento: e.target.value };
+                            setShopSettings({...shopSettings, horarios_por_dia: newConfig});
+                          }}
+                          className="bg-black border-[#444] h-9 w-32 [color-scheme:dark]"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm font-bold text-gray-500 uppercase tracking-wider pr-10">Fechado</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <div className="mt-6 flex justify-end">
             <Button onClick={saveShopSettings} disabled={loading} className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold">
-              Salvar Horários da Loja
+              Salvar Configurações
             </Button>
           </div>
         </section>

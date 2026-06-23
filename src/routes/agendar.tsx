@@ -81,7 +81,7 @@ function AgendarPage() {
   };
 
   const proximosDias = useMemo(() => {
-    if (!shopSettings) return [];
+    if (!shopSettings || !shopSettings.horarios_por_dia) return [];
     const arr: { iso: string; dia: string; numero: number; mes: string }[] = [];
     const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
     const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -89,7 +89,9 @@ function AgendarPage() {
     while (arr.length < 14 && dateIndex < 30) {
       const d = new Date();
       d.setDate(d.getDate() + dateIndex);
-      if (shopSettings.dias_funcionamento.includes(d.getDay())) {
+      const diaSemana = d.getDay().toString();
+      const configDia = shopSettings.horarios_por_dia[diaSemana];
+      if (configDia && configDia.ativo) {
         arr.push({
           iso: d.toISOString().slice(0, 10),
           dia: dias[d.getDay()],
@@ -140,8 +142,16 @@ function AgendarPage() {
       const blocks = blocksRes.data || [];
       
       // Configuração de horários
-      const openTime = shopSettings.hora_abertura;
-      const closeTime = shopSettings.hora_fechamento;
+      const diaDaSemana = new Date(date + 'T00:00:00').getDay().toString();
+      const configDia = shopSettings.horarios_por_dia?.[diaDaSemana];
+      
+      if (!configDia || !configDia.ativo) {
+        setSlots([]);
+        return;
+      }
+      
+      const openTime = configDia.abertura;
+      const closeTime = configDia.fechamento;
       const buffer = shopSettings.buffer_minutos;
       
       const toMin = (hhmm: string) => {
