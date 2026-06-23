@@ -410,12 +410,12 @@ function AdminDashboard() {
                         <Button size="icon" variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => updateStatus(app.id, 'cancelado')} title="Cancelar">
                           <X className="w-4 h-4" />
                         </Button>
-                        {role === 'admin' && (
-                          <Button size="icon" variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10 ml-4" onClick={() => deleteAppointment(app.id)} title="Excluir Definitivamente">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
                       </div>
+                    )}
+                    {role === 'admin' && (
+                      <Button size="icon" variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10 ml-4" onClick={() => deleteAppointment(app.id)} title="Excluir Definitivamente">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     )}
                   </div>
                 </div>
