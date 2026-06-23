@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Copy, CheckCircle2, Clock, User, Phone, Check, X, Calendar as CalIcon, ChevronLeft, ChevronRight, QrCode, Edit2 } from 'lucide-react'
+import { Copy, CheckCircle2, Clock, User, Phone, Check, X, Calendar as CalIcon, ChevronLeft, ChevronRight, QrCode, Edit2, Trash2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -34,6 +34,15 @@ function AdminDashboard() {
   const [editHora, setEditHora] = useState('')
   const [editBarberId, setEditBarberId] = useState('')
   const [editServiceId, setEditServiceId] = useState('')
+
+  // New Appointment Modal State
+  const [isNewOpen, setIsNewOpen] = useState(false)
+  const [newNome, setNewNome] = useState('')
+  const [newTelefone, setNewTelefone] = useState('')
+  const [newData, setNewData] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [newHora, setNewHora] = useState('')
+  const [newBarberId, setNewBarberId] = useState('')
+  const [newSelectedServices, setNewSelectedServices] = useState<string[]>([])
 
   // Check-in Modal State
   const [isCheckinOpen, setIsCheckinOpen] = useState(false)
@@ -103,6 +112,17 @@ function AdminDashboard() {
     } else {
       toast.success(`Agendamento ${status}!`)
       fetchDashboardData(selectedDate)
+    }
+  }
+
+  const deleteAppointment = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir DEFINITIVAMENTE este agendamento? Ele sumirá do histórico.")) return;
+    const { error } = await supabase.from('appointments').delete().eq('id', id);
+    if (error) {
+      toast.error('Erro ao excluir: ' + error.message);
+    } else {
+      toast.success('Agendamento excluído!');
+      fetchDashboardData(selectedDate);
     }
   }
 
@@ -192,6 +212,65 @@ function AdminDashboard() {
     setLoading(false)
   }
 
+  const handleNewSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newSelectedServices.length === 0) {
+      toast.error('Selecione pelo menos um serviço!');
+      return;
+    }
+    setLoading(true)
+    
+    const [h, m] = newHora.split(":").map(Number);
+    const [y, mth, d] = newData.split("-").map(Number);
+    const startDt = new Date(y, mth - 1, d, h, m, 0, 0);
+    const dataHoraInicio = startDt.toISOString();
+    
+    // Obter os serviços selecionados do array de estado global 'services'
+    const servicosObj = services.filter(s => newSelectedServices.includes(s.id));
+    const duracaoTotal = servicosObj.reduce((acc, s) => acc + s.duracao_minutos, 0);
+    const precoTotal = servicosObj.reduce((acc, s) => acc + s.preco, 0);
+    const servicosNomes = servicosObj.map(s => s.nome).join(' + ');
+
+    const endDt = new Date(startDt);
+    endDt.setMinutes(endDt.getMinutes() + duracaoTotal);
+
+    // O barbeiro final é o selecionado, ou o próprio se não for admin
+    let finalBarberId = newBarberId;
+    if (role !== 'admin' && !finalBarberId) {
+      // Pega o barbeiro atrelado ao usuário
+      // Como o input vai ser oculto ou desativado, newBarberId pode estar vazio.
+      // É mais seguro obrigar a selecionar ou auto-selecionar o do barbers[0] assumindo que ele só ve ele mesmo
+      finalBarberId = barbers[0]?.id;
+    }
+
+    const { error } = await supabase.from('appointments').insert({
+      cliente_nome: newNome,
+      telefone: newTelefone,
+      data_hora_inicio: dataHoraInicio,
+      data_hora_fim: endDt.toISOString(),
+      barber_id: finalBarberId,
+      service_id: servicosObj[0].id, // fallback pro primeiro
+      preco_cobrado: precoTotal,
+      servicos_resumo: servicosNomes,
+      codigo_confirmacao: Math.floor(1000 + Math.random() * 9000).toString(),
+      status: 'agendado'
+    })
+
+    if (error) {
+      toast.error('Erro ao agendar: ' + error.message)
+    } else {
+      toast.success('Novo agendamento criado com sucesso!')
+      setIsNewOpen(false)
+      // Reset form
+      setNewNome('')
+      setNewTelefone('')
+      setNewHora('')
+      setNewSelectedServices([])
+      fetchDashboardData(selectedDate)
+    }
+    setLoading(false)
+  }
+
   return (
     <main className="flex-1 p-8 overflow-y-auto">
       <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -201,6 +280,18 @@ function AdminDashboard() {
         </div>
         
         <div className="flex gap-2">
+          <Button 
+            onClick={() => {
+              setNewNome(''); setNewTelefone(''); setNewHora(''); setNewSelectedServices([]);
+              if (role !== 'admin' && barbers.length > 0) { setNewBarberId(barbers[0].id); }
+              else { setNewBarberId(''); }
+              setIsNewOpen(true);
+            }}
+            className="bg-[#1A1A1A] hover:bg-[#222] border border-[#333] text-white font-bold flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Novo
+          </Button>
           <Button 
             onClick={() => { setIsCheckinOpen(true); setCheckinCode(''); setFoundAppt(null); setCheckinError(''); }}
             className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold flex items-center gap-2"
@@ -301,7 +392,7 @@ function AdminDashboard() {
                     <div className="flex items-center gap-4 text-sm text-gray-400 mt-2 ml-17">
                       <span className="flex items-center gap-1"><User className="w-4 h-4" /> {app.barbers?.nome}</span>
                       <a href={`https://wa.me/55${app.telefone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-[#D4AF37] transition"><Phone className="w-4 h-4" /> {app.telefone}</a>
-                      <span className="flex items-center gap-1 text-gray-300 ml-4 font-medium"><Clock className="w-4 h-4" /> {app.services?.nome}</span>
+                      <span className="flex items-center gap-1 text-gray-300 ml-4 font-medium"><Clock className="w-4 h-4" /> {app.servicos_resumo || app.services?.nome}</span>
                     </div>
                   </div>
                   <div className="text-right flex items-center gap-6">
@@ -319,6 +410,11 @@ function AdminDashboard() {
                         <Button size="icon" variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => updateStatus(app.id, 'cancelado')} title="Cancelar">
                           <X className="w-4 h-4" />
                         </Button>
+                        {role === 'admin' && (
+                          <Button size="icon" variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10 ml-4" onClick={() => deleteAppointment(app.id)} title="Excluir Definitivamente">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -426,6 +522,72 @@ function AdminDashboard() {
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="flex-1 border-[#333] text-white hover:bg-[#1A1A1A]">Cancelar</Button>
                 <Button type="submit" disabled={loading} className="flex-1 bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold">Salvar Alterações</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Novo Agendamento Modal */}
+      {isNewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md bg-[#111] border border-[#222] rounded-xl p-6 overflow-y-auto max-h-[90vh]">
+            <h2 className="text-2xl font-bold mb-2 text-white">Novo Agendamento</h2>
+            <p className="text-gray-400 text-sm mb-6">Crie um agendamento manualmente na agenda.</p>
+            
+            <form onSubmit={handleNewSave} className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 uppercase">Nome do Cliente</label>
+                <Input required value={newNome} onChange={e => setNewNome(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 uppercase">WhatsApp</label>
+                <Input required value={newTelefone} onChange={e => setNewTelefone(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 uppercase">Data</label>
+                  <Input required type="date" value={newData} onChange={e => setNewData(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1 [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 uppercase">Hora</label>
+                  <Input required type="time" value={newHora} onChange={e => setNewHora(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1 [color-scheme:dark]" />
+                </div>
+              </div>
+              
+              {role === 'admin' ? (
+                <div>
+                  <label className="text-xs text-gray-400 uppercase">Barbeiro</label>
+                  <select required value={newBarberId} onChange={e => setNewBarberId(e.target.value)} className="w-full mt-1 bg-[#1A1A1A] border border-[#333] rounded-md p-2 text-white outline-none focus:border-[#D4AF37]">
+                    <option value="" disabled>Selecione</option>
+                    {barbers.map(b => <option key={b.id} value={b.id}>{b.nome}</option>)}
+                  </select>
+                </div>
+              ) : null}
+
+              <div>
+                <label className="text-xs text-gray-400 uppercase mb-2 block">Serviços</label>
+                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-[#1A1A1A] border border-[#333] rounded-md">
+                  {services.map(s => (
+                    <label key={s.id} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={newSelectedServices.includes(s.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setNewSelectedServices([...newSelectedServices, s.id])
+                          else setNewSelectedServices(newSelectedServices.filter(id => id !== s.id))
+                        }}
+                        className="accent-[#D4AF37]"
+                      />
+                      {s.nome}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsNewOpen(false)} className="flex-1 border-[#333] text-white hover:bg-[#1A1A1A]">Cancelar</Button>
+                <Button type="submit" disabled={loading} className="flex-1 bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold">Criar Agendamento</Button>
               </div>
             </form>
           </div>

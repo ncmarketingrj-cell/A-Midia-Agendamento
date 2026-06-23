@@ -44,7 +44,7 @@ type Step = 1 | 2 | 3 | 4;
 function AgendarPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(1);
-  const [service, setService] = useState<Service | null>(null);
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [barber, setBarber] = useState<Barber | "auto" | null>(null);
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [hora, setHora] = useState<string | null>(null);
@@ -100,10 +100,10 @@ function AgendarPage() {
   // Fetch slots locally
   useEffect(() => {
     async function fetchSlots() {
-      if (!service || !barber || step !== 3 || !shopSettings) return;
+      if (selectedServices.length === 0 || !barber || step !== 3 || !shopSettings) return;
       
       const barberIds = barber === "auto" 
-        ? barbers.filter(b => b.barber_services?.some(s => s.service_id === service.id)).map(b => b.id)
+        ? barbers.filter(b => selectedServices.every(selServ => b.barber_services?.some(s => s.service_id === selServ.id))).map(b => b.id)
         : [barber.id];
       
       if (barberIds.length === 0) {
@@ -149,14 +149,14 @@ function AgendarPage() {
         return `${h}:${m}`;
       };
       
-      const duracao = service.duracao_minutos;
+      const duracaoTotal = selectedServices.reduce((acc, s) => acc + s.duracao_minutos, 0);
       const stepTime = 15;
       const start = toMin(openTime);
       const end = toMin(closeTime);
       
       const daySlots: { hora: string; livre: boolean; realBarberId?: string }[] = [];
       
-      for (let t = start; t + duracao <= end; t += stepTime) {
+      for (let t = start; t + duracaoTotal <= end; t += stepTime) {
         let isLivre = false;
         let pickedBarberId = null;
         
@@ -171,7 +171,7 @@ function AgendarPage() {
           for (const blk of barberBlocks) {
             const blkStart = toMin(blk.hora_inicio);
             const blkEnd = toMin(blk.hora_fim);
-            if (t < blkEnd && (t + duracao) > blkStart) {
+            if (t < blkEnd && (t + duracaoTotal) > blkStart) {
               conflict = true;
               break;
             }
@@ -183,7 +183,7 @@ function AgendarPage() {
               const apptStart = toDateMin(appt.data_hora_inicio);
               const apptEnd = toDateMin(appt.data_hora_fim);
               // Considera buffer após o agendamento
-              if (t < (apptEnd + buffer) && (t + duracao + buffer) > apptStart) {
+              if (t < (apptEnd + buffer) && (t + duracaoTotal + buffer) > apptStart) {
                 conflict = true;
                 break;
               }
@@ -203,10 +203,10 @@ function AgendarPage() {
       setSlots(daySlots);
     }
     fetchSlots();
-  }, [service, barber, date, step, shopSettings]);
+  }, [selectedServices, barber, date, step, shopSettings]);
 
   async function confirmar() {
-    if (!service || !hora) return;
+    if (selectedServices.length === 0 || !hora) return;
     setLoadingConfig(true);
     
     // Obter o ID real do barbeiro caso seja "auto"
@@ -217,25 +217,29 @@ function AgendarPage() {
 
     const codigo = gerarCodigo();
     
-    // Parse start and end times to ISO string for timestamptz correctly in local timezone
     const [h, m] = hora.split(":").map(Number);
     const [y, mth, d] = date.split("-").map(Number);
     const startDt = new Date(y, mth - 1, d, h, m, 0, 0);
     const dataHoraInicio = startDt.toISOString();
     
+    const duracaoTotal = selectedServices.reduce((acc, s) => acc + s.duracao_minutos, 0);
+    const precoTotal = selectedServices.reduce((acc, s) => acc + s.preco, 0);
+    const servicosNomes = selectedServices.map(s => s.nome).join(' + ');
+    
     const endDt = new Date(startDt);
-    endDt.setMinutes(endDt.getMinutes() + service.duracao_minutos);
+    endDt.setMinutes(endDt.getMinutes() + duracaoTotal);
     const dataHoraFim = endDt.toISOString();
 
     const { error } = await supabase.from("appointments").insert({
       barber_id: realBarberId,
-      service_id: service.id,
+      service_id: selectedServices[0].id,
       cliente_nome: nome,
       telefone: tel,
       data_hora_inicio: dataHoraInicio,
       data_hora_fim: dataHoraFim,
       codigo_confirmacao: codigo,
-      preco_cobrado: service.preco,
+      preco_cobrado: precoTotal,
+      servicos_resumo: servicosNomes,
       status: "agendado"
     });
 
@@ -251,7 +255,7 @@ function AgendarPage() {
       search: {
         codigo,
         nome,
-        servico: service.nome,
+        servico: servicosNomes,
         barbeiro: barber === "auto" ? "A casa escolhe" : chosenBarber?.nome,
         data: date,
         hora: hora,
@@ -303,13 +307,16 @@ function AgendarPage() {
         {step === 1 && (
           <div className="space-y-3">
             {services.map((s) => {
-              const ativo = service?.id === s.id;
+              const ativo = selectedServices.some(sel => sel.id === s.id);
               return (
                 <button
                   key={s.id}
                   onClick={() => {
-                    setService(s);
-                    setTimeout(() => setStep(2), 150);
+                    if (ativo) {
+                      setSelectedServices(selectedServices.filter(sel => sel.id !== s.id));
+                    } else {
+                      setSelectedServices([...selectedServices, s]);
+                    }
                   }}
                   className={`w-full rounded-lg border p-4 text-left transition ${
                     ativo
@@ -319,7 +326,7 @@ function AgendarPage() {
                 >
                   <div className="flex items-start gap-3">
                     <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-secondary text-gold">
-                      <Scissors className="h-5 w-5" />
+                      {ativo ? <Check className="h-5 w-5" /> : <Scissors className="h-5 w-5" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
@@ -335,6 +342,15 @@ function AgendarPage() {
                 </button>
               );
             })}
+            {services.length > 0 && (
+              <button
+                disabled={selectedServices.length === 0}
+                onClick={() => setStep(2)}
+                className="mt-6 flex h-14 w-full items-center justify-center rounded-md gold-gradient font-bold uppercase tracking-wider text-primary-foreground disabled:opacity-40"
+              >
+                Próximo Passo
+              </button>
+            )}
             {services.length === 0 && !loadingConfig && (
               <p className="text-center text-sm text-muted-foreground">Nenhum serviço disponível.</p>
             )}
@@ -367,7 +383,7 @@ function AgendarPage() {
               </div>
             </button>
 
-            {barbers.filter(b => b.barber_services?.some(s => s.service_id === service?.id)).map((b) => {
+            {barbers.filter(b => selectedServices.every(selServ => b.barber_services?.some(s => s.service_id === selServ.id))).map((b) => {
               const ativo = barber !== "auto" && barber?.id === b.id;
               return (
                 <button
@@ -485,7 +501,7 @@ function AgendarPage() {
         {step === 4 && (
           <div className="space-y-5">
             <ResumoCard
-              service={service}
+              selectedServices={selectedServices}
               barber={barber}
               date={date}
               hora={hora}
@@ -555,12 +571,12 @@ function AgendarPage() {
 }
 
 function ResumoCard({
-  service,
+  selectedServices,
   barber,
   date,
   hora,
 }: {
-  service: Service | null;
+  selectedServices: Service[];
   barber: Barber | "auto" | null;
   date: string;
   hora: string | null;
@@ -575,10 +591,10 @@ function ResumoCard({
     <div className="rounded-lg border border-gold/30 bg-card p-4">
       <p className="mb-3 text-[10px] uppercase tracking-[0.25em] text-gold">Resumo</p>
       <div className="space-y-2 text-sm">
-        <Linha k="Serviço" v={service ? `${service.nome} · ${service.duracao_minutos} min` : "—"} />
+        <Linha k="Serviços" v={selectedServices.length > 0 ? `${selectedServices.map(s => s.nome).join(' + ')} · ${selectedServices.reduce((acc, s) => acc + s.duracao_minutos, 0)} min` : "—"} />
         <Linha k="Barbeiro" v={barberLabel} />
         <Linha k="Quando" v={`${dataFmt} às ${hora}`} />
-        <Linha k="Valor" v={service ? brl(service.preco) : "—"} destaque />
+        <Linha k="Valor" v={selectedServices.length > 0 ? brl(selectedServices.reduce((acc, s) => acc + s.preco, 0)) : "—"} destaque />
       </div>
     </div>
   );
