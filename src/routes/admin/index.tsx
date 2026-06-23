@@ -378,9 +378,9 @@ function AdminDashboard() {
                   filteredAppointments.map(app => {
               const horaFormatada = format(parseISO(app.data_hora_inicio), 'HH:mm');
               return (
-                <div key={app.id} className={`p-6 transition flex items-center justify-between ${app.status === 'cancelado' ? 'bg-red-950/20 opacity-50' : app.status === 'finalizado' ? 'bg-green-950/10' : 'hover:bg-[#151515]'}`}>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
+                <div key={app.id} className={`p-4 sm:p-6 transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 ${app.status === 'cancelado' ? 'bg-red-950/20 opacity-50' : app.status === 'finalizado' ? 'bg-green-950/10' : 'hover:bg-[#151515]'}`}>
+                  <div className="flex-1 w-full">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
                       <span className="font-bold text-xl text-[#D4AF37] w-14">{horaFormatada}</span>
                       <h4 className="font-bold text-lg text-white">
                         {app.cliente_nome}
@@ -389,13 +389,13 @@ function AdminDashboard() {
                       {app.status === 'finalizado' && <span className="bg-green-500/10 text-green-400 text-xs px-2 py-0.5 rounded-full font-medium">Finalizado</span>}
                       {app.status === 'cancelado' && <span className="bg-red-500/10 text-red-400 text-xs px-2 py-0.5 rounded-full font-medium">Cancelado</span>}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-400 mt-2 ml-17">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-400 mt-2 sm:ml-17">
                       <span className="flex items-center gap-1"><User className="w-4 h-4" /> {app.barbers?.nome}</span>
                       <a href={`https://wa.me/55${app.telefone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-[#D4AF37] transition"><Phone className="w-4 h-4" /> {app.telefone}</a>
-                      <span className="flex items-center gap-1 text-gray-300 ml-4 font-medium"><Clock className="w-4 h-4" /> {app.servicos_resumo || app.services?.nome}</span>
+                      <span className="flex items-center gap-1 text-gray-300 font-medium"><Clock className="w-4 h-4" /> {app.servicos_resumo || app.services?.nome}</span>
                     </div>
                   </div>
-                  <div className="text-right flex items-center gap-6">
+                  <div className="w-full sm:w-auto text-right flex items-center justify-between sm:justify-end gap-4 sm:gap-6 border-t border-[#222] sm:border-0 pt-4 sm:pt-0">
                     <span className="block font-bold text-white text-lg">
                       {(app.preco_cobrado || app.services?.preco || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>

@@ -129,57 +129,59 @@ function ServicosAdmin() {
       </header>
 
       <div className="bg-[#111] rounded-xl border border-[#222] overflow-hidden">
-        <table className="w-full text-left text-sm text-gray-300">
-          <thead className="bg-[#1A1A1A] text-xs uppercase text-gray-400 border-b border-[#222]">
-            <tr>
-              <th className="px-6 py-4">Serviço</th>
-              <th className="px-6 py-4">Duração</th>
-              <th className="px-6 py-4">Preço</th>
-              <th className="px-6 py-4 text-center">Status</th>
-              <th className="px-6 py-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#222]">
-            {services.map(s => (
-              <tr key={s.id} className="hover:bg-[#151515]">
-                <td className="px-6 py-4">
-                  <div className="font-bold text-white">{s.nome}</div>
-                  <div className="text-xs text-gray-500 mt-1">{s.descricao}</div>
-                </td>
-                <td className="px-6 py-4">{s.duracao_minutos} min</td>
-                <td className="px-6 py-4 font-bold text-[#D4AF37]">
-                  {s.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </td>
-                <td className="px-6 py-4 text-center">
-                  {s.ativo ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-1 rounded-full">
-                      <Check className="w-3 h-3" /> Ativo
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-1 rounded-full">
-                      <X className="w-3 h-3" /> Inativo
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-right space-x-2">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(s)} className="text-gray-400 hover:text-white">
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => toggleAtivo(s.id, s.ativo)} className={s.ativo ? "text-red-400 hover:text-red-300 hover:bg-red-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"}>
-                    {s.ativo ? <Trash2 className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {services.length === 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-300 min-w-[600px]">
+            <thead className="bg-[#1A1A1A] text-xs uppercase text-gray-400 border-b border-[#222]">
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  Nenhum serviço cadastrado.
-                </td>
+                <th className="px-6 py-4">Serviço</th>
+                <th className="px-6 py-4">Duração</th>
+                <th className="px-6 py-4">Preço</th>
+                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4 text-right">Ações</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#222]">
+              {services.map(s => (
+                <tr key={s.id} className="hover:bg-[#151515]">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-bold text-white">{s.nome}</div>
+                    <div className="text-xs text-gray-500 mt-1 max-w-[200px] truncate">{s.descricao}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">{s.duracao_minutos} min</td>
+                  <td className="px-6 py-4 font-bold text-[#D4AF37] whitespace-nowrap">
+                    {s.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </td>
+                  <td className="px-6 py-4 text-center whitespace-nowrap">
+                    {s.ativo ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-1 rounded-full">
+                        <Check className="w-3 h-3" /> Ativo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-1 rounded-full">
+                        <X className="w-3 h-3" /> Inativo
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)} className="text-gray-400 hover:text-white">
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => toggleAtivo(s.id, s.ativo)} className={s.ativo ? "text-red-400 hover:text-red-300 hover:bg-red-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"}>
+                      {s.ativo ? <Trash2 className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {services.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    Nenhum serviço cadastrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {isModalOpen && (

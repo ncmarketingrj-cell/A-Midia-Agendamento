@@ -203,58 +203,60 @@ function BarbeirosAdmin() {
       </header>
 
       <div className="bg-[#111] rounded-xl border border-[#222] overflow-hidden">
-        <table className="w-full text-left text-sm text-gray-300">
-          <thead className="bg-[#1A1A1A] text-xs uppercase text-gray-400 border-b border-[#222]">
-            <tr>
-              <th className="px-6 py-4">Profissional</th>
-              <th className="px-6 py-4">Especialidade</th>
-              <th className="px-6 py-4 text-center">Comissão</th>
-              <th className="px-6 py-4 text-center">Status</th>
-              <th className="px-6 py-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#222]">
-            {barbers.map(b => (
-              <tr key={b.id} className="hover:bg-[#151515]">
-                <td className="px-6 py-4 flex items-center gap-3">
-                  <img src={b.foto_url} alt={b.nome} className="w-10 h-10 rounded-full border border-[#D4AF37]/30 object-cover" />
-                  <span className="font-bold text-white">{b.nome}</span>
-                </td>
-                <td className="px-6 py-4">{b.especialidade}</td>
-                <td className="px-6 py-4 text-center font-bold text-[#D4AF37]">{b.comissao_percentual}%</td>
-                <td className="px-6 py-4 text-center">
-                  {b.ativo ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-1 rounded-full">
-                      <Check className="w-3 h-3" /> Ativo
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-full" title="Oculto no app público">
-                      <Clock className="w-3 h-3" /> Pausado
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-right space-x-2">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(b)} className="text-gray-400 hover:text-white" title="Editar">
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => toggleAtivo(b.id, b.ativo)} className={b.ativo ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"} title={b.ativo ? "Pausar" : "Ativar"}>
-                    {b.ativo ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(b.id)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10" title="Excluir Definitivamente">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {barbers.length === 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-300 min-w-[600px]">
+            <thead className="bg-[#1A1A1A] text-xs uppercase text-gray-400 border-b border-[#222]">
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  Nenhum barbeiro cadastrado.
-                </td>
+                <th className="px-6 py-4">Profissional</th>
+                <th className="px-6 py-4">Especialidade</th>
+                <th className="px-6 py-4 text-center">Comissão</th>
+                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4 text-right">Ações</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#222]">
+              {barbers.map(b => (
+                <tr key={b.id} className="hover:bg-[#151515]">
+                  <td className="px-6 py-4 flex items-center gap-3 whitespace-nowrap">
+                    <img src={b.foto_url} alt={b.nome} className="w-10 h-10 rounded-full border border-[#D4AF37]/30 object-cover" />
+                    <span className="font-bold text-white">{b.nome}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">{b.especialidade}</td>
+                  <td className="px-6 py-4 text-center font-bold text-[#D4AF37] whitespace-nowrap">{b.comissao_percentual}%</td>
+                  <td className="px-6 py-4 text-center whitespace-nowrap">
+                    {b.ativo ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-1 rounded-full">
+                        <Check className="w-3 h-3" /> Ativo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-full" title="Oculto no app público">
+                        <Clock className="w-3 h-3" /> Pausado
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(b)} className="text-gray-400 hover:text-white" title="Editar">
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => toggleAtivo(b.id, b.ativo)} className={b.ativo ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"} title={b.ativo ? "Pausar" : "Ativar"}>
+                      {b.ativo ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(b.id)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10" title="Excluir Definitivamente">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {barbers.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    Nenhum barbeiro cadastrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {isModalOpen && (

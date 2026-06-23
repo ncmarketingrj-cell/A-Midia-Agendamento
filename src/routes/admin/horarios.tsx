@@ -201,44 +201,46 @@ function HorariosAdmin() {
 
       <h2 className="text-xl font-bold mb-4 text-[#D4AF37]">Bloqueios Manuais (Folgas / Almoço)</h2>
       <div className="bg-[#111] rounded-xl border border-[#222] overflow-hidden">
-        <table className="w-full text-left text-sm text-gray-300">
-          <thead className="bg-[#1A1A1A] text-xs uppercase text-gray-400 border-b border-[#222]">
-            <tr>
-              <th className="px-6 py-4">Data</th>
-              <th className="px-6 py-4">Horário</th>
-              <th className="px-6 py-4">Barbeiro</th>
-              <th className="px-6 py-4">Motivo</th>
-              <th className="px-6 py-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#222]">
-            {bloqueios.map(b => (
-              <tr key={b.id} className="hover:bg-[#151515]">
-                <td className="px-6 py-4 font-bold text-white flex items-center gap-2">
-                  <CalIcon className="w-4 h-4 text-[#D4AF37]" />
-                  {format(parseISO(b.data), 'dd/MM/yyyy')}
-                </td>
-                <td className="px-6 py-4">
-                  <span className="flex items-center gap-1 text-gray-400"><Clock className="w-3 h-3" /> {b.hora_inicio.slice(0,5)} as {b.hora_fim.slice(0,5)}</span>
-                </td>
-                <td className="px-6 py-4 text-[#D4AF37] font-medium">{b.barbers?.nome}</td>
-                <td className="px-6 py-4 text-gray-500">{b.motivo || '—'}</td>
-                <td className="px-6 py-4 text-right">
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(b.id)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {bloqueios.length === 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-300 min-w-[600px]">
+            <thead className="bg-[#1A1A1A] text-xs uppercase text-gray-400 border-b border-[#222]">
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  Nenhum bloqueio cadastrado.
-                </td>
+                <th className="px-6 py-4">Data</th>
+                <th className="px-6 py-4">Horário</th>
+                <th className="px-6 py-4">Barbeiro</th>
+                <th className="px-6 py-4">Motivo</th>
+                <th className="px-6 py-4 text-right">Ações</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#222]">
+              {bloqueios.map(b => (
+                <tr key={b.id} className="hover:bg-[#151515]">
+                  <td className="px-6 py-4 font-bold text-white flex items-center gap-2 whitespace-nowrap">
+                    <CalIcon className="w-4 h-4 text-[#D4AF37]" />
+                    {format(parseISO(b.data), 'dd/MM/yyyy')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="flex items-center gap-1 text-gray-400"><Clock className="w-3 h-3" /> {b.hora_inicio.slice(0,5)} as {b.hora_fim.slice(0,5)}</span>
+                  </td>
+                  <td className="px-6 py-4 text-[#D4AF37] font-medium whitespace-nowrap">{b.barbers?.nome}</td>
+                  <td className="px-6 py-4 text-gray-500 max-w-[200px] truncate">{b.motivo || '—'}</td>
+                  <td className="px-6 py-4 text-right">
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(b.id)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {bloqueios.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    Nenhum bloqueio cadastrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {isModalOpen && (
