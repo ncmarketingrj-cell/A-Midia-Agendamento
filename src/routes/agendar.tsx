@@ -53,7 +53,7 @@ function AgendarPage() {
 
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [slots, setSlots] = useState<{ hora: string; livre: boolean }[]>([]);
+  const [slots, setSlots] = useState<{ hora: string; livre: boolean; realBarberId?: string }[]>([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
 
   const [shopSettings, setShopSettings] = useState<any>(null);
