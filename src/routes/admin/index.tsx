@@ -61,16 +61,55 @@ function AdminDashboard() {
       if(data) setServices(data)
     })
 
+    const playNotificationSound = () => {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const playNote = (freq: number, startTime: number, duration: number) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+          
+          gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+          gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + startTime + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + startTime);
+          osc.stop(ctx.currentTime + startTime + duration);
+        };
+        // Ding Dong sound
+        playNote(880, 0, 0.4);      // A5
+        playNote(659.25, 0.2, 0.6); // E5
+      } catch(e) {
+        console.error("Audio block", e);
+      }
+    };
+
     // Realtime Subscriptions
     const channel = supabase
       .channel('public:appointments')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, payload => {
         if (payload.eventType === 'INSERT') {
-          toast.success('Novo agendamento recebido em tempo real!', {
-            duration: 5000,
-            icon: '🔔',
-            style: { background: '#111', color: '#D4AF37', borderColor: '#333' }
-          })
+          playNotificationSound();
+          const appt = payload.new as any;
+          const hora = appt.data_hora_inicio ? format(parseISO(appt.data_hora_inicio), 'HH:mm') : '';
+          const dataStr = appt.data_hora_inicio ? format(parseISO(appt.data_hora_inicio), 'dd/MM/yyyy') : '';
+          
+          toast(
+            <div className="flex flex-col gap-1">
+              <p className="font-bold text-lg text-white mb-1">Novo Agendamento!</p>
+              <p className="text-sm text-gray-300"><b>Cliente:</b> {appt.cliente_nome}</p>
+              <p className="text-sm text-gray-300"><b>Data:</b> {dataStr} às <span className="text-[#D4AF37] font-bold">{hora}</span></p>
+              <p className="text-sm text-gray-300"><b>Serviços:</b> {appt.servicos_resumo || 'Serviço Padrão'}</p>
+            </div>,
+            {
+              duration: 10000,
+              icon: '🔔',
+              style: { background: '#111', borderColor: '#D4AF37', color: 'white' }
+            }
+          );
         }
         fetchDashboardData(selectedDateRef.current)
       })
