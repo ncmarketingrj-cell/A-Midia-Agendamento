@@ -325,9 +325,12 @@ function AdminDashboard() {
                 </div>
               )
             })
-          )
-        })()}
+          )}
+        </div>
       </div>
+      </>
+      )
+    })()}
 
       {/* Check-in Modal */}
       {isCheckinOpen && (
