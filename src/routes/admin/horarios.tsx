@@ -19,6 +19,7 @@ function HorariosAdmin() {
   const [barbers, setBarbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [shopSettings, setShopSettings] = useState<any>(null)
 
   // Form State
   const [barberId, setBarberId] = useState('')
@@ -37,13 +38,29 @@ function HorariosAdmin() {
 
   const fetchData = async () => {
     setLoading(true)
-    const [barbersRes, bloqueiosRes] = await Promise.all([
+    const [barbersRes, bloqueiosRes, shopRes] = await Promise.all([
       supabase.from('barbers').select('*').eq('ativo', true).order('nome'),
-      supabase.from('blocked_times').select('*, barbers(nome)').order('data', { ascending: false })
+      supabase.from('blocked_times').select('*, barbers(nome)').order('data', { ascending: false }),
+      supabase.from('shop_settings').select('*').limit(1).single()
     ])
     
     if (barbersRes.data) setBarbers(barbersRes.data)
     if (bloqueiosRes.data) setBloqueios(bloqueiosRes.data)
+    if (shopRes.data) setShopSettings(shopRes.data)
+    
+    setLoading(false)
+  }
+
+  const saveShopSettings = async () => {
+    setLoading(true)
+    const { error } = await supabase.from('shop_settings').update({
+      hora_abertura: shopSettings.hora_abertura,
+      hora_fechamento: shopSettings.hora_fechamento,
+      dias_funcionamento: shopSettings.dias_funcionamento
+    }).eq('id', shopSettings.id)
+    
+    if (error) toast.error('Erro ao salvar horários: ' + error.message)
+    else toast.success('Horários de funcionamento atualizados!')
     
     setLoading(false)
   }
@@ -107,6 +124,69 @@ function HorariosAdmin() {
         </Button>
       </header>
 
+      {shopSettings && (
+        <section className="bg-[#111] rounded-xl border border-[#222] p-6 mb-8">
+          <h2 className="text-xl font-bold mb-4 text-[#D4AF37]">Horário de Funcionamento</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-400">Abre as</Label>
+                  <Input 
+                    type="time" 
+                    value={shopSettings.hora_abertura} 
+                    onChange={e => setShopSettings({...shopSettings, hora_abertura: e.target.value})} 
+                    className="bg-[#1A1A1A] border-[#333] mt-1 [color-scheme:dark]" 
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-400">Fecha as</Label>
+                  <Input 
+                    type="time" 
+                    value={shopSettings.hora_fechamento} 
+                    onChange={e => setShopSettings({...shopSettings, hora_fechamento: e.target.value})} 
+                    className="bg-[#1A1A1A] border-[#333] mt-1 [color-scheme:dark]" 
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <Label className="text-gray-400 block mb-2">Dias Abertos</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: 0, label: 'Dom' }, { value: 1, label: 'Seg' }, { value: 2, label: 'Ter' },
+                  { value: 3, label: 'Qua' }, { value: 4, label: 'Qui' }, { value: 5, label: 'Sex' },
+                  { value: 6, label: 'Sab' }
+                ].map(dia => {
+                  const checked = shopSettings.dias_funcionamento.includes(dia.value);
+                  return (
+                    <button
+                      key={dia.value}
+                      onClick={() => {
+                        let newDias = [...shopSettings.dias_funcionamento];
+                        if (checked) newDias = newDias.filter(d => d !== dia.value);
+                        else newDias.push(dia.value);
+                        setShopSettings({...shopSettings, dias_funcionamento: newDias.sort()});
+                      }}
+                      className={`px-4 py-2 rounded-lg border text-sm font-bold transition-colors ${checked ? 'bg-[#D4AF37] border-[#D4AF37] text-black' : 'bg-[#1A1A1A] border-[#333] text-gray-400 hover:border-gray-500'}`}
+                    >
+                      {dia.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end">
+            <Button onClick={saveShopSettings} disabled={loading} className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold">
+              Salvar Horários da Loja
+            </Button>
+          </div>
+        </section>
+      )}
+
+      <h2 className="text-xl font-bold mb-4 text-[#D4AF37]">Bloqueios Manuais (Folgas / Almoço)</h2>
       <div className="bg-[#111] rounded-xl border border-[#222] overflow-hidden">
         <table className="w-full text-left text-sm text-gray-300">
           <thead className="bg-[#1A1A1A] text-xs uppercase text-gray-400 border-b border-[#222]">

@@ -81,21 +81,32 @@ function AgendarPage() {
   };
 
   const proximosDias = useMemo(() => {
+    if (!shopSettings) return [];
     const arr: { iso: string; dia: string; numero: number; mes: string }[] = [];
     const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
     const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-    for (let i = 0; i < 14; i++) {
+    let dateIndex = 0;
+    while (arr.length < 14 && dateIndex < 30) {
       const d = new Date();
-      d.setDate(d.getDate() + i);
-      arr.push({
-        iso: d.toISOString().slice(0, 10),
-        dia: dias[d.getDay()],
-        numero: d.getDate(),
-        mes: meses[d.getMonth()],
-      });
+      d.setDate(d.getDate() + dateIndex);
+      if (shopSettings.dias_funcionamento.includes(d.getDay())) {
+        arr.push({
+          iso: d.toISOString().slice(0, 10),
+          dia: dias[d.getDay()],
+          numero: d.getDate(),
+          mes: meses[d.getMonth()],
+        });
+      }
+      dateIndex++;
     }
     return arr;
-  }, []);
+  }, [shopSettings]);
+
+  useEffect(() => {
+    if (proximosDias.length > 0 && !proximosDias.find(d => d.iso === date)) {
+      setDate(proximosDias[0].iso);
+    }
+  }, [proximosDias, date]);
 
   // Fetch slots locally
   useEffect(() => {
@@ -150,7 +161,7 @@ function AgendarPage() {
       };
       
       const duracaoTotal = selectedServices.reduce((acc, s) => acc + s.duracao_minutos, 0);
-      const stepTime = 15;
+      const stepTime = 30; // Alterado para 30 minutos
       const start = toMin(openTime);
       const end = toMin(closeTime);
       
