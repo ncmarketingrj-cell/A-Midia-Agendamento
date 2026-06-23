@@ -174,3 +174,11 @@
 @utility gold-gradient {
   background-image: linear-gradient(135deg, oklch(0.85 0.14 88) 0%, oklch(0.7 0.14 80) 100%);
 }
+
+/* Esconder marca d'água Lovable */
+#lovable-badge,
+.lovable-badge,
+iframe[src*="lovable"],
+a[href*="lovable.dev/badge"] {
+  display: none !important;
+}
