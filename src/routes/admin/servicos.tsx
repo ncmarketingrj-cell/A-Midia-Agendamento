@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, Edit2, Trash2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { useOutletContext } from '@tanstack/react-router'
+
 import { Textarea } from '@/components/ui/textarea'
 
 export const Route = createFileRoute('/admin/servicos')({

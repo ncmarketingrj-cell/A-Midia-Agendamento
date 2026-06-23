@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Edit2, Check, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
-import { useOutletContext } from '@tanstack/react-router'
+
 
 export const Route = createFileRoute('/admin/barbeiros')({
   component: BarbeirosAdmin,
