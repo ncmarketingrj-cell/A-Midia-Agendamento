@@ -261,7 +261,7 @@ function AgendarPage() {
 
   function voltar() {
     if (step === 1) {
-      navigate({ to: "/" });
+      navigate({ to: "/cliente" });
       return;
     }
     setStep((s) => (s - 1) as Step);
@@ -542,7 +542,7 @@ function AgendarPage() {
           )}
           {(step === 1 || step === 2) && (
             <Link
-              to="/"
+              to="/cliente"
               className="block text-center text-xs text-muted-foreground"
             >
               Cancelar agendamento
