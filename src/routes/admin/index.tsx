@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Copy, CheckCircle2, Clock, User, Phone, Check, X, Calendar as CalIcon, ChevronLeft, ChevronRight, QrCode } from 'lucide-react'
+import { Copy, CheckCircle2, Clock, User, Phone, Check, X, Calendar as CalIcon, ChevronLeft, ChevronRight, QrCode, Edit2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -18,6 +18,22 @@ function AdminDashboard() {
   const [appointments, setAppointments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [barbers, setBarbers] = useState<any[]>([])
+  const [services, setServices] = useState<any[]>([])
+  const [selectedBarber, setSelectedBarber] = useState('all')
+
+  const selectedDateRef = useRef(selectedDate)
+  useEffect(() => { selectedDateRef.current = selectedDate }, [selectedDate])
+
+  // Edit Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editAppt, setEditAppt] = useState<any>(null)
+  const [editNome, setEditNome] = useState('')
+  const [editTelefone, setEditTelefone] = useState('')
+  const [editData, setEditData] = useState('')
+  const [editHora, setEditHora] = useState('')
+  const [editBarberId, setEditBarberId] = useState('')
+  const [editServiceId, setEditServiceId] = useState('')
 
   // Check-in Modal State
   const [isCheckinOpen, setIsCheckinOpen] = useState(false)
@@ -27,6 +43,33 @@ function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData(selectedDate)
+    
+    // Fetch barbers and services for filter and edit modal
+    supabase.from('barbers').select('id, nome').order('nome').then(({data}) => {
+      if(data) setBarbers(data)
+    })
+    supabase.from('services').select('id, nome, preco').order('nome').then(({data}) => {
+      if(data) setServices(data)
+    })
+
+    // Realtime Subscriptions
+    const channel = supabase
+      .channel('public:appointments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, payload => {
+        if (payload.eventType === 'INSERT') {
+          toast.success('Novo agendamento recebido em tempo real!', {
+            duration: 5000,
+            icon: '🔔',
+            style: { background: '#111', color: '#D4AF37', borderColor: '#333' }
+          })
+        }
+        fetchDashboardData(selectedDateRef.current)
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [role, selectedDate])
 
   const fetchDashboardData = async (date: Date) => {
@@ -105,6 +148,50 @@ function AdminDashboard() {
     setFoundAppt(null)
   }
 
+  const openEditModal = (app: any) => {
+    setEditAppt(app)
+    setEditNome(app.cliente_nome)
+    setEditTelefone(app.telefone)
+    
+    const d = new Date(app.data_hora_inicio)
+    setEditData(format(d, 'yyyy-MM-dd'))
+    setEditHora(format(d, 'HH:mm'))
+    setEditBarberId(app.barber_id)
+    setEditServiceId(app.service_id)
+    setIsEditOpen(true)
+  }
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    
+    const [h, m] = editHora.split(":").map(Number);
+    const [y, mth, d] = editData.split("-").map(Number);
+    const startDt = new Date(y, mth - 1, d, h, m, 0, 0);
+    const dataHoraInicio = startDt.toISOString();
+    
+    const endDt = new Date(startDt);
+    endDt.setMinutes(endDt.getMinutes() + 40);
+
+    const { error } = await supabase.from('appointments').update({
+      cliente_nome: editNome,
+      telefone: editTelefone,
+      data_hora_inicio: dataHoraInicio,
+      data_hora_fim: endDt.toISOString(),
+      barber_id: editBarberId,
+      service_id: editServiceId
+    }).eq('id', editAppt.id)
+
+    if (error) {
+      toast.error('Erro ao atualizar: ' + error.message)
+    } else {
+      toast.success('Agendamento atualizado (Encaixe feito)!')
+      setIsEditOpen(false)
+      fetchDashboardData(selectedDate)
+    }
+    setLoading(false)
+  }
+
   return (
     <main className="flex-1 p-8 overflow-y-auto">
       <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -132,53 +219,72 @@ function AdminDashboard() {
         </div>
       </header>
 
-      {/* Dashboard Cards */}
-      {/* Date Navigation */}
-      <div className="flex items-center gap-4 mb-6 bg-[#111] border border-[#222] p-2 rounded-xl w-fit">
-        <Button variant="ghost" size="icon" onClick={() => changeDate(-1)} className="hover:bg-[#1A1A1A]">
-          <ChevronLeft className="w-5 h-5" />
-        </Button>
-        <div className="flex items-center gap-2 font-bold px-4 w-40 justify-center">
-          <CalIcon className="w-4 h-4 text-[#D4AF37]" />
-          {format(selectedDate, "dd 'de' MMM", { locale: ptBR })}
-        </div>
-        <Button variant="ghost" size="icon" onClick={() => changeDate(1)} className="hover:bg-[#1A1A1A]">
-          <ChevronRight className="w-5 h-5" />
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-[#111] p-6 rounded-xl border border-[#222]">
-          <h3 className="text-gray-400 text-sm font-medium mb-2">Agendamentos do Dia</h3>
-          <p className="text-3xl font-bold text-[#D4AF37]">{loading ? '...' : appointments.length}</p>
-        </div>
-        {role === 'admin' && (
-          <div className="bg-[#111] p-6 rounded-xl border border-[#222]">
-            <h3 className="text-gray-400 text-sm font-medium mb-2">Previsão Faturamento</h3>
-            <p className="text-3xl font-bold text-[#D4AF37]">
-              {loading ? '...' : appointments
-                  .filter(a => a.status !== 'cancelado')
-                  .reduce((acc, curr) => acc + (curr.preco_cobrado || curr.services?.preco || 0), 0)
-                  .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </p>
+      {/* Date Navigation and Filters */}
+      <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+        <div className="flex items-center bg-[#111] border border-[#222] p-2 rounded-xl w-fit">
+          <Button variant="ghost" size="icon" onClick={() => changeDate(-1)} className="hover:bg-[#1A1A1A]">
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex items-center gap-2 font-bold px-4 w-40 justify-center">
+            <CalIcon className="w-4 h-4 text-[#D4AF37]" />
+            {format(selectedDate, "dd 'de' MMM", { locale: ptBR })}
           </div>
+          <Button variant="ghost" size="icon" onClick={() => changeDate(1)} className="hover:bg-[#1A1A1A]">
+            <ChevronRight className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {role === 'admin' && barbers.length > 0 && (
+          <select 
+            value={selectedBarber} 
+            onChange={e => setSelectedBarber(e.target.value)}
+            className="bg-[#111] border border-[#222] rounded-xl p-3 text-sm font-bold text-gray-300 outline-none focus:border-[#D4AF37]"
+          >
+            <option value="all">Todos os Barbeiros</option>
+            {barbers.map(b => (
+              <option key={b.id} value={b.id}>{b.nome}</option>
+            ))}
+          </select>
         )}
       </div>
 
-      {/* Lista de Agenda */}
-      <div className="bg-[#111] rounded-xl border border-[#222] overflow-hidden">
-        <div className="p-6 border-b border-[#222]">
-          <h3 className="text-lg font-bold">Agenda</h3>
-        </div>
-        <div className="divide-y divide-[#222]">
-          {loading ? (
-             <div className="p-6 text-center text-gray-500">Carregando agenda...</div>
-          ) : appointments.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              Nenhum agendamento para este dia.
+      {(() => {
+        const filteredAppointments = selectedBarber === 'all' ? appointments : appointments.filter(a => a.barber_id === selectedBarber);
+        const revenue = filteredAppointments
+          .filter(a => a.status !== 'cancelado')
+          .reduce((acc, curr) => acc + (curr.preco_cobrado || curr.services?.preco || 0), 0);
+        
+        return (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-[#111] p-6 rounded-xl border border-[#222]">
+                <h3 className="text-gray-400 text-sm font-medium mb-2">Agendamentos do Dia</h3>
+                <p className="text-3xl font-bold text-[#D4AF37]">{loading ? '...' : filteredAppointments.length}</p>
+              </div>
+              {role === 'admin' && (
+                <div className="bg-[#111] p-6 rounded-xl border border-[#222]">
+                  <h3 className="text-gray-400 text-sm font-medium mb-2">Previsão Faturamento</h3>
+                  <p className="text-3xl font-bold text-[#D4AF37]">
+                    {loading ? '...' : revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                </div>
+              )}
             </div>
-          ) : (
-            appointments.map(app => {
+
+            {/* Lista de Agenda */}
+            <div className="bg-[#111] rounded-xl border border-[#222] overflow-hidden">
+              <div className="p-6 border-b border-[#222]">
+                <h3 className="text-lg font-bold">Agenda</h3>
+              </div>
+              <div className="divide-y divide-[#222]">
+                {loading ? (
+                   <div className="p-6 text-center text-gray-500">Carregando agenda...</div>
+                ) : filteredAppointments.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500">
+                    Nenhum agendamento para este dia com o filtro atual.
+                  </div>
+                ) : (
+                  filteredAppointments.map(app => {
               const horaFormatada = format(parseISO(app.data_hora_inicio), 'HH:mm');
               return (
                 <div key={app.id} className={`p-6 transition flex items-center justify-between ${app.status === 'cancelado' ? 'bg-red-950/20 opacity-50' : app.status === 'finalizado' ? 'bg-green-950/10' : 'hover:bg-[#151515]'}`}>
@@ -204,6 +310,9 @@ function AdminDashboard() {
                     </span>
                     {app.status === 'agendado' && (
                       <div className="flex gap-2">
+                        <Button size="icon" variant="outline" className="border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => openEditModal(app)} title="Editar / Encaixe">
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
                         <Button size="icon" variant="outline" className="border-green-500/30 text-green-400 hover:bg-green-500/10" onClick={() => updateStatus(app.id, 'finalizado')} title="Concluir">
                           <Check className="w-4 h-4" />
                         </Button>
@@ -216,8 +325,8 @@ function AdminDashboard() {
                 </div>
               )
             })
-          )}
-        </div>
+          )
+        })()}
       </div>
 
       {/* Check-in Modal */}
@@ -267,6 +376,55 @@ function AdminDashboard() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Edit/Encaixe Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md bg-[#111] border border-[#222] rounded-xl p-6">
+            <h2 className="text-2xl font-bold mb-2 text-white">Editar Agendamento</h2>
+            <p className="text-gray-400 text-sm mb-6">Reagende ou faça um encaixe alterando os dados abaixo.</p>
+            
+            <form onSubmit={handleEditSave} className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 uppercase">Nome do Cliente</label>
+                <Input required value={editNome} onChange={e => setEditNome(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 uppercase">WhatsApp</label>
+                <Input required value={editTelefone} onChange={e => setEditTelefone(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 uppercase">Data</label>
+                  <Input required type="date" value={editData} onChange={e => setEditData(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1 [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 uppercase">Hora</label>
+                  <Input required type="time" value={editHora} onChange={e => setEditHora(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1 [color-scheme:dark]" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 uppercase">Barbeiro</label>
+                  <select required value={editBarberId} onChange={e => setEditBarberId(e.target.value)} className="w-full mt-1 bg-[#1A1A1A] border border-[#333] rounded-md p-2 text-white outline-none focus:border-[#D4AF37]">
+                    {barbers.map(b => <option key={b.id} value={b.id}>{b.nome}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 uppercase">Serviço</label>
+                  <select required value={editServiceId} onChange={e => setEditServiceId(e.target.value)} className="w-full mt-1 bg-[#1A1A1A] border border-[#333] rounded-md p-2 text-white outline-none focus:border-[#D4AF37]">
+                    {services.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="flex-1 border-[#333] text-white hover:bg-[#1A1A1A]">Cancelar</Button>
+                <Button type="submit" disabled={loading} className="flex-1 bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold">Salvar Alterações</Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

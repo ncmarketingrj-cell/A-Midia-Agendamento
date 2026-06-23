@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, MapPin, Calendar, Download } from "lucide-react";
+import { Check, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -48,43 +48,6 @@ function SucessoPage() {
       })
     : "—";
 
-  const downloadICS = () => {
-    if (!data || !hora) return;
-    const [h, m] = hora.split(":").map(Number);
-    const [y, mth, d] = data.split("-").map(Number);
-    const startDate = new Date(y, mth - 1, d, h, m, 0);
-    const endDate = new Date(startDate);
-    endDate.setMinutes(endDate.getMinutes() + 40); // estimate 40 min
-
-    const formatICSDate = (date: Date) => {
-      return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    };
-
-    const icsContent = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//AMidiaBarbearia//PT",
-      "BEGIN:VEVENT",
-      `UID:${Date.now()}@amidiabarbearia.com`,
-      `DTSTAMP:${formatICSDate(new Date())}`,
-      `DTSTART:${formatICSDate(startDate)}`,
-      `DTEND:${formatICSDate(endDate)}`,
-      `SUMMARY:Agendamento A Mídia: ${servico} com ${barbeiro}`,
-      `LOCATION:${endereco}`,
-      `DESCRIPTION:Seu agendamento foi confirmado. Código de confirmação: ${codigo}`,
-      "END:VEVENT",
-      "END:VCALENDAR"
-    ].join("\n");
-
-    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
-    const link = document.createElement("a");
-    link.href = window.URL.createObjectURL(blob);
-    link.setAttribute("download", `agendamento_${data}.ics`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <main className="relative flex min-h-screen flex-col items-center px-4 py-10">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[50vh] bg-[radial-gradient(circle_at_50%_0%,rgba(212,175,55,0.22),transparent_70%)]" />
@@ -122,14 +85,11 @@ function SucessoPage() {
         </div>
 
         <div className="mt-8 flex w-full flex-col gap-2">
-          <button onClick={downloadICS} className="flex h-12 items-center justify-center gap-2 rounded-md border border-gold/40 bg-card text-sm font-semibold uppercase tracking-wider text-gold hover:bg-gold/10 transition-colors">
-            <Calendar className="h-4 w-4" /> Adicionar ao calendário
-          </button>
           <Link
-            to="/"
-            className="flex h-12 items-center justify-center text-sm text-muted-foreground"
+            to="/cliente"
+            className="flex h-12 items-center justify-center rounded-md border border-gold/40 bg-card text-sm font-semibold uppercase tracking-wider text-gold hover:bg-gold/10 transition-colors"
           >
-            Voltar pro início
+            Fazer Novo Agendamento
           </Link>
         </div>
       </div>
