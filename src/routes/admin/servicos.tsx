@@ -92,6 +92,55 @@ function ServicosAdmin() {
     }
   }
 
+  const handleBulkImport = async () => {
+    const confirm = window.confirm("Isso desativará todos os serviços atuais e importará a lista enviada. Continuar?");
+    if (!confirm) return;
+
+    const newServices = [
+      { nome: 'Cabelo + Barba', preco: 60, duracao_minutos: 60, ativo: true },
+      { nome: 'Corte Máquina', preco: 35, duracao_minutos: 30, ativo: true },
+      { nome: 'Corte Máquina e Tesoura', preco: 40, duracao_minutos: 40, ativo: true },
+      { nome: 'Pigmentação', preco: 20, duracao_minutos: 30, ativo: true },
+      { nome: 'Corte + Pigmentação', preco: 60, duracao_minutos: 60, ativo: true },
+      { nome: 'Barba', preco: 25, duracao_minutos: 30, ativo: true },
+      { nome: 'Corte Reflexo', preco: 80, duracao_minutos: 90, ativo: true },
+      { nome: 'Sobrancelha', preco: 15, duracao_minutos: 15, ativo: true },
+      { nome: 'Pezinho', preco: 10, duracao_minutos: 15, ativo: true },
+      { nome: 'Corte Completo (Máq/Tes/Nav)', preco: 45, duracao_minutos: 50, ativo: true }
+    ];
+
+    try {
+      setLoading(true);
+      // 1. Deactivate existing
+      for (const s of services) {
+        await supabase.from('services').update({ ativo: false }).eq('id', s.id);
+      }
+      
+      // 2. Insert new
+      const { error: insErr } = await supabase.from('services').insert(newServices);
+      if (insErr) throw insErr;
+      
+      toast.success("Serviços atualizados com sucesso!");
+      fetchServices();
+      
+      // Auto-link to barbers
+      const { data: activeServices } = await supabase.from('services').select('id').eq('ativo', true);
+      const { data: barbers } = await supabase.from('barbers').select('id');
+      
+      if (activeServices && barbers) {
+        for (const b of barbers) {
+          await supabase.from('barber_services').delete().eq('barber_id', b.id);
+          const links = activeServices.map(as => ({ barber_id: b.id, service_id: as.id }));
+          await supabase.from('barber_services').insert(links);
+        }
+      }
+      
+    } catch(e: any) {
+      toast.error("Erro ao importar: " + e.message);
+      setLoading(false);
+    }
+  }
+
   const resetForm = () => {
     setNome('')
     setDescricao('')
@@ -118,13 +167,21 @@ function ServicosAdmin() {
           <h1 className="text-3xl font-bold">Gestão de Serviços</h1>
           <p className="text-gray-400">Controle o cardápio da barbearia</p>
         </div>
-        
-        <Button 
-          onClick={() => { resetForm(); setIsModalOpen(true); }}
-          className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold"
-        >
-          <Plus className="mr-2 h-4 w-4" /> Novo Serviço
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleBulkImport}
+            variant="outline"
+            className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10"
+          >
+            Importar Tabela
+          </Button>
+          <Button 
+            onClick={() => { resetForm(); setIsModalOpen(true); }}
+            className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Novo Serviço
+          </Button>
+        </div>
       </header>
 
       <div className="bg-[#111] rounded-xl border border-[#222] overflow-hidden">
