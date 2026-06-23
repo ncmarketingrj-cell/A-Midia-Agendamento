@@ -73,9 +73,19 @@ function ServicosAdmin() {
       if (error) toast.error('Erro ao atualizar: ' + error.message)
       else toast.success('Serviço atualizado!')
     } else {
-      const { error } = await supabase.from('services').insert(payload)
+      const { data, error } = await supabase.from('services').insert(payload).select().single()
       if (error) toast.error('Erro ao cadastrar: ' + error.message)
-      else toast.success('Serviço criado com sucesso!')
+      else {
+        toast.success('Serviço criado com sucesso!')
+        // Vínculo automático aos barbeiros ativos para aparecer na página pública
+        if (data?.id) {
+          const { data: barbers } = await supabase.from('barbers').select('id').eq('ativo', true);
+          if (barbers && barbers.length > 0) {
+            const links = barbers.map(b => ({ barber_id: b.id, service_id: data.id }));
+            await supabase.from('barber_services').insert(links);
+          }
+        }
+      }
     }
 
     setIsModalOpen(false)
@@ -92,52 +102,18 @@ function ServicosAdmin() {
     }
   }
 
-  const handleBulkImport = async () => {
-    const confirm = window.confirm("Isso desativará todos os serviços atuais e importará a lista enviada. Continuar?");
-    if (!confirm) return;
-
-    const newServices = [
-      { nome: 'Cabelo + Barba', preco: 60, duracao_minutos: 60, ativo: true },
-      { nome: 'Corte Máquina', preco: 35, duracao_minutos: 30, ativo: true },
-      { nome: 'Corte Máquina e Tesoura', preco: 40, duracao_minutos: 40, ativo: true },
-      { nome: 'Pigmentação', preco: 20, duracao_minutos: 30, ativo: true },
-      { nome: 'Corte + Pigmentação', preco: 60, duracao_minutos: 60, ativo: true },
-      { nome: 'Barba', preco: 25, duracao_minutos: 30, ativo: true },
-      { nome: 'Corte Reflexo', preco: 80, duracao_minutos: 90, ativo: true },
-      { nome: 'Sobrancelha', preco: 15, duracao_minutos: 15, ativo: true },
-      { nome: 'Pezinho', preco: 10, duracao_minutos: 15, ativo: true },
-      { nome: 'Corte Completo (Máq/Tes/Nav)', preco: 45, duracao_minutos: 50, ativo: true }
-    ];
-
-    try {
-      setLoading(true);
-      // 1. Deactivate existing
-      for (const s of services) {
-        await supabase.from('services').update({ ativo: false }).eq('id', s.id);
-      }
-      
-      // 2. Insert new
-      const { error: insErr } = await supabase.from('services').insert(newServices);
-      if (insErr) throw insErr;
-      
-      toast.success("Serviços atualizados com sucesso!");
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja EXCLUIR DEFINITIVAMENTE este serviço?')) return;
+    
+    // Deleta os vínculos primeiro para evitar erro de Foreign Key
+    await supabase.from('barber_services').delete().eq('service_id', id);
+    
+    const { error } = await supabase.from('services').delete().eq('id', id);
+    if (error) {
+      toast.error('Erro ao excluir (Pode ter agendamentos antigos): ' + error.message);
+    } else {
+      toast.success('Serviço excluído definitivamente!');
       fetchServices();
-      
-      // Auto-link to barbers
-      const { data: activeServices } = await supabase.from('services').select('id').eq('ativo', true);
-      const { data: barbers } = await supabase.from('barbers').select('id');
-      
-      if (activeServices && barbers) {
-        for (const b of barbers) {
-          await supabase.from('barber_services').delete().eq('barber_id', b.id);
-          const links = activeServices.map(as => ({ barber_id: b.id, service_id: as.id }));
-          await supabase.from('barber_services').insert(links);
-        }
-      }
-      
-    } catch(e: any) {
-      toast.error("Erro ao importar: " + e.message);
-      setLoading(false);
     }
   }
 
@@ -167,21 +143,12 @@ function ServicosAdmin() {
           <h1 className="text-3xl font-bold">Gestão de Serviços</h1>
           <p className="text-gray-400">Controle o cardápio da barbearia</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleBulkImport}
-            variant="outline"
-            className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10"
-          >
-            Importar Tabela
-          </Button>
-          <Button 
-            onClick={() => { resetForm(); setIsModalOpen(true); }}
-            className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold"
-          >
-            <Plus className="mr-2 h-4 w-4" /> Novo Serviço
-          </Button>
-        </div>
+        <Button 
+          onClick={() => { resetForm(); setIsModalOpen(true); }}
+          className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Novo Serviço
+        </Button>
       </header>
 
       <div className="bg-[#111] rounded-xl border border-[#222] overflow-hidden">
@@ -219,11 +186,14 @@ function ServicosAdmin() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)} className="text-gray-400 hover:text-white">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)} className="text-gray-400 hover:text-white" title="Editar">
                       <Edit2 className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => toggleAtivo(s.id, s.ativo)} className={s.ativo ? "text-red-400 hover:text-red-300 hover:bg-red-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"}>
-                      {s.ativo ? <Trash2 className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                    <Button variant="ghost" size="icon" onClick={() => toggleAtivo(s.id, s.ativo)} className={s.ativo ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"} title={s.ativo ? "Pausar Serviço" : "Ativar Serviço"}>
+                      {s.ativo ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(s.id)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10" title="Excluir Definitivamente">
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </td>
                 </tr>
