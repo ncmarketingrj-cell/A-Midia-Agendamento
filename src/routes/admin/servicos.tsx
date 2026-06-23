@@ -63,7 +63,6 @@ function ServicosAdmin() {
     
     const payload = {
       nome,
-      descricao,
       duracao_minutos: duracao,
       preco,
       ativo: true

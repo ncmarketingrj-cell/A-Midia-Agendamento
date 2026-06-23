@@ -81,8 +81,7 @@ function HorariosAdmin() {
       barber_id: barberId,
       data,
       hora_inicio: horaInicio,
-      hora_fim: horaFim,
-      motivo
+      hora_fim: horaFim
     }
 
     const { error } = await supabase.from('blocked_times').insert(payload)
