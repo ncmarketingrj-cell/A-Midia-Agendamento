@@ -56,12 +56,34 @@ create table appointments (
 create table admin_users (
   id uuid primary key references auth.users(id),
   nome text,
-  role text default 'admin' -- admin / barbeiro (se quiser login individual depois)
+  role text default 'admin', -- admin / barbeiro
+  barber_id uuid references barbers(id) -- link para qual barbeiro este usuario pertence
 );
 
 -- Índices úteis
 create index idx_appointments_barber_data on appointments(barber_id, data_hora_inicio);
 create index idx_appointments_status on appointments(status);
+
+-- Funções utilitárias para RLS (Security Definer para evitar recursão infinita)
+create or replace function public.is_admin()
+returns boolean as $$
+declare
+  user_role text;
+begin
+  select role into user_role from public.admin_users where id = auth.uid();
+  return user_role = 'admin';
+end;
+$$ language plpgsql security definer set search_path = public;
+
+create or replace function public.get_my_barber_id()
+returns uuid as $$
+declare
+  b_id uuid;
+begin
+  select barber_id into b_id from public.admin_users where id = auth.uid();
+  return b_id;
+end;
+$$ language plpgsql security definer set search_path = public;
 
 -- Habilitar RLS em todas as tabelas
 alter table shop_settings enable row level security;
@@ -73,19 +95,31 @@ alter table admin_users enable row level security;
 
 -- Policies para Appointments (público insere, admin lê/edita)
 create policy "Agendamento livre para inserção pública" on appointments for insert with check (true);
-create policy "Acesso total a appointments para admin" on appointments for all using (auth.role() = 'authenticated');
+-- Drop antigas policies para recriar
+drop policy if exists "Acesso total a appointments para admin" on appointments;
+drop policy if exists "Acesso total a shop_settings para admin" on shop_settings;
+drop policy if exists "Acesso total a barbers para admin" on barbers;
+drop policy if exists "Acesso total a services para admin" on services;
+drop policy if exists "Acesso total a blocked_times para admin" on blocked_times;
+drop policy if exists "Acesso total a admin_users para admin" on admin_users;
 
--- Policies base (Admin total)
-create policy "Acesso total a shop_settings para admin" on shop_settings for all using (auth.role() = 'authenticated');
-create policy "Leitura pública de shop_settings" on shop_settings for select using (true);
+-- Appointments
+create policy "Admin total appointments" on appointments for all using (is_admin());
+create policy "Barbeiro ve proprios appointments" on appointments for all using (barber_id = get_my_barber_id());
 
-create policy "Acesso total a barbers para admin" on barbers for all using (auth.role() = 'authenticated');
-create policy "Leitura pública de barbers" on barbers for select using (true);
+-- Shop Settings
+create policy "Admin total shop_settings" on shop_settings for all using (is_admin());
 
-create policy "Acesso total a services para admin" on services for all using (auth.role() = 'authenticated');
-create policy "Leitura pública de services" on services for select using (true);
+-- Barbers
+create policy "Admin total barbers" on barbers for all using (is_admin());
 
-create policy "Acesso total a blocked_times para admin" on blocked_times for all using (auth.role() = 'authenticated');
-create policy "Leitura pública de blocked_times" on blocked_times for select using (true);
+-- Services
+create policy "Admin total services" on services for all using (is_admin());
 
-create policy "Acesso total a admin_users para admin" on admin_users for all using (auth.role() = 'authenticated');
+-- Blocked Times
+create policy "Admin total blocked_times" on blocked_times for all using (is_admin());
+create policy "Barbeiro gerencia proprios bloqueios" on blocked_times for all using (barber_id = get_my_barber_id());
+
+-- Admin Users
+create policy "Admin total admin_users" on admin_users for all using (is_admin());
+create policy "Leitura propria admin_users" on admin_users for select using (auth.uid() = id);
