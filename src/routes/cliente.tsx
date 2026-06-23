@@ -42,6 +42,7 @@ function Index() {
       <div className="relative z-10 flex w-full max-w-md flex-col gap-3 pb-4">
         <Link
           to="/agendar"
+          preload="intent"
           className="group flex h-14 items-center justify-center rounded-md gold-gradient text-base font-bold uppercase tracking-wider text-primary-foreground shadow-[0_10px_30px_-10px_rgba(212,175,55,0.6)] transition active:scale-[0.98]"
         >
           Bora marcar

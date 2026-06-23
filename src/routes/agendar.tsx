@@ -36,6 +36,18 @@ export const Route = createFileRoute("/agendar")({
       { name: "description", content: "Escolhe o serviço, o barbeiro e o horário." },
     ],
   }),
+  loader: async () => {
+    const [resServ, resBarb, resShop] = await Promise.all([
+      supabase.from("services").select("*").eq("ativo", true).order("nome"),
+      supabase.from("barbers").select("*, barber_services(service_id)").eq("ativo", true).order("nome"),
+      supabase.from("shop_settings").select("*").limit(1).single()
+    ]);
+    return {
+      initialServices: resServ.data || [],
+      initialBarbers: resBarb.data || [],
+      shopSettings: resShop.data
+    };
+  },
   component: AgendarPage,
 });
 
@@ -51,27 +63,10 @@ function AgendarPage() {
   const [nome, setNome] = useState("");
   const [tel, setTel] = useState("");
 
-  const [services, setServices] = useState<Service[]>([]);
-  const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [slots, setSlots] = useState<{ hora: string; livre: boolean; realBarberId?: string }[]>([]);
-  const [loadingConfig, setLoadingConfig] = useState(true);
-
-  const [shopSettings, setShopSettings] = useState<any>(null);
-
-  useEffect(() => {
-    async function loadConfig() {
-      const [resServ, resBarb, resShop] = await Promise.all([
-        supabase.from("services").select("*").eq("ativo", true).order("nome"),
-        supabase.from("barbers").select("*, barber_services(service_id)").eq("ativo", true).order("nome"),
-        supabase.from("shop_settings").select("*").limit(1).single()
-      ]);
-      if (resServ.data) setServices(resServ.data);
-      if (resBarb.data) setBarbers(resBarb.data);
-      if (resShop.data) setShopSettings(resShop.data);
-      setLoadingConfig(false);
-    }
-    loadConfig();
-  }, []);
+  const { initialServices: services, initialBarbers: barbers, shopSettings } = Route.useLoaderData();
+  const [submitting, setSubmitting] = useState(false);
+  const [appointmentsCache, setAppointmentsCache] = useState<any[]>([]);
+  const [blocksCache, setBlocksCache] = useState<any[]>([]);
 
   const titulos: Record<Step, { titulo: string; sub: string }> = {
     1: { titulo: "Qual vai ser hoje?", sub: "Escolhe o serviço." },
@@ -110,131 +105,133 @@ function AgendarPage() {
     }
   }, [proximosDias, date]);
 
-  // Fetch slots locally
+  // Batch fetch appointments for all valid days
   useEffect(() => {
-    async function fetchSlots() {
-      if (selectedServices.length === 0 || !barber || step !== 3 || !shopSettings) return;
+    async function fetchCache() {
+      if (selectedServices.length === 0 || !barber || step !== 3 || !shopSettings || proximosDias.length === 0) return;
       
       const barberIds = barber === "auto" 
         ? barbers.filter(b => selectedServices.every(selServ => b.barber_services?.some(s => s.service_id === selServ.id))).map(b => b.id)
         : [barber.id];
-      
+        
       if (barberIds.length === 0) {
-        setSlots([]);
-        return;
+        setAppointmentsCache([]); setBlocksCache([]); return;
       }
       
-      const prevDay = new Date(date);
-      prevDay.setDate(prevDay.getDate() - 1);
-      const nextDay = new Date(date);
-      nextDay.setDate(nextDay.getDate() + 1);
+      const firstDay = new Date(proximosDias[0].iso);
+      firstDay.setDate(firstDay.getDate() - 1);
+      const lastDay = new Date(proximosDias[proximosDias.length - 1].iso);
+      lastDay.setDate(lastDay.getDate() + 1);
 
-      // Fetch appointments and blocks for the selected date and barbers
       const [apptRes, blocksRes] = await Promise.all([
         supabase.from('appointments')
           .select('data_hora_inicio, data_hora_fim, barber_id')
-          .gte('data_hora_inicio', `${prevDay.toISOString().split('T')[0]}T00:00:00Z`)
-          .lte('data_hora_inicio', `${nextDay.toISOString().split('T')[0]}T23:59:59Z`)
+          .gte('data_hora_inicio', `${firstDay.toISOString().split('T')[0]}T00:00:00Z`)
+          .lte('data_hora_inicio', `${lastDay.toISOString().split('T')[0]}T23:59:59Z`)
           .in('barber_id', barberIds)
           .neq('status', 'cancelado'),
         supabase.from('blocked_times')
-          .select('hora_inicio, hora_fim, barber_id')
-          .eq('data', date)
+          .select('hora_inicio, hora_fim, barber_id, data')
+          .gte('data', proximosDias[0].iso)
+          .lte('data', proximosDias[proximosDias.length - 1].iso)
           .in('barber_id', barberIds)
       ]);
+      setAppointmentsCache(apptRes.data || []);
+      setBlocksCache(blocksRes.data || []);
+    }
+    fetchCache();
+  }, [barber, step, proximosDias, selectedServices, barbers, shopSettings]);
+
+  // Synchronous slot calculation
+  const slots = useMemo(() => {
+    if (selectedServices.length === 0 || !barber || step !== 3 || !shopSettings) return [];
+    
+    const barberIds = barber === "auto" 
+      ? barbers.filter(b => selectedServices.every(selServ => b.barber_services?.some(s => s.service_id === selServ.id))).map(b => b.id)
+      : [barber.id];
       
-      const localDateNum = new Date(date + 'T12:00:00').getDate();
-      const appointments = (apptRes.data || []).filter(a => new Date(a.data_hora_inicio).getDate() === localDateNum);
-      const blocks = blocksRes.data || [];
+    if (barberIds.length === 0) return [];
+
+    const localDateNum = new Date(date + 'T12:00:00').getDate();
+    const appointments = appointmentsCache.filter(a => new Date(a.data_hora_inicio).getDate() === localDateNum);
+    const blocks = blocksCache.filter(b => b.data === date);
+    
+    const diaDaSemana = new Date(date + 'T00:00:00').getDay().toString();
+    const configDia = shopSettings.horarios_por_dia?.[diaDaSemana];
+    
+    if (!configDia || !configDia.ativo) return [];
+    
+    const openTime = configDia.abertura;
+    const closeTime = configDia.fechamento;
+    const buffer = shopSettings.buffer_minutos;
+    
+    const toMin = (hhmm: string) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      return h * 60 + m;
+    };
+    
+    const toDateMin = (isoString: string) => {
+      const d = new Date(isoString);
+      return d.getHours() * 60 + d.getMinutes();
+    };
+    
+    const fromMin = (min: number) => {
+      const h = Math.floor(min / 60).toString().padStart(2, '0');
+      const m = (min % 60).toString().padStart(2, '0');
+      return `${h}:${m}`;
+    };
+    
+    const duracaoTotal = selectedServices.reduce((acc, s) => acc + s.duracao_minutos, 0);
+    const stepTime = 30;
+    const start = toMin(openTime);
+    const end = toMin(closeTime);
+    
+    const daySlots: { hora: string; livre: boolean; realBarberId?: string }[] = [];
+    
+    for (let t = start; t + duracaoTotal <= end; t += stepTime) {
+      let isLivre = false;
+      let pickedBarberId = null;
       
-      // Configuração de horários
-      const diaDaSemana = new Date(date + 'T00:00:00').getDay().toString();
-      const configDia = shopSettings.horarios_por_dia?.[diaDaSemana];
-      
-      if (!configDia || !configDia.ativo) {
-        setSlots([]);
-        return;
-      }
-      
-      const openTime = configDia.abertura;
-      const closeTime = configDia.fechamento;
-      const buffer = shopSettings.buffer_minutos;
-      
-      const toMin = (hhmm: string) => {
-        const [h, m] = hhmm.split(':').map(Number);
-        return h * 60 + m;
-      };
-      
-      const toDateMin = (isoString: string) => {
-        const d = new Date(isoString);
-        return d.getHours() * 60 + d.getMinutes();
-      };
-      
-      const fromMin = (min: number) => {
-        const h = Math.floor(min / 60).toString().padStart(2, '0');
-        const m = (min % 60).toString().padStart(2, '0');
-        return `${h}:${m}`;
-      };
-      
-      const duracaoTotal = selectedServices.reduce((acc, s) => acc + s.duracao_minutos, 0);
-      const stepTime = 30; // Alterado para 30 minutos
-      const start = toMin(openTime);
-      const end = toMin(closeTime);
-      
-      const daySlots: { hora: string; livre: boolean; realBarberId?: string }[] = [];
-      
-      for (let t = start; t + duracaoTotal <= end; t += stepTime) {
-        let isLivre = false;
-        let pickedBarberId = null;
+      for (const bid of barberIds) {
+        const barberAppts = appointments.filter(a => a.barber_id === bid);
+        const barberBlocks = blocks.filter(b => b.barber_id === bid);
         
-        // Verificamos se há PELO MENOS UM barbeiro livre neste horário
-        for (const bid of barberIds) {
-          const barberAppts = appointments.filter(a => a.barber_id === bid);
-          const barberBlocks = blocks.filter(b => b.barber_id === bid);
-          
-          let conflict = false;
-          
-          // Check blocks
-          for (const blk of barberBlocks) {
-            const blkStart = toMin(blk.hora_inicio);
-            const blkEnd = toMin(blk.hora_fim);
-            if (t < blkEnd && (t + duracaoTotal) > blkStart) {
-              conflict = true;
-              break;
-            }
-          }
-          
-          // Check appts
-          if (!conflict) {
-            for (const appt of barberAppts) {
-              const apptStart = toDateMin(appt.data_hora_inicio);
-              const apptEnd = toDateMin(appt.data_hora_fim);
-              // Considera buffer após o agendamento
-              if (t < (apptEnd + buffer) && (t + duracaoTotal + buffer) > apptStart) {
-                conflict = true;
-                break;
-              }
-            }
-          }
-          
-          if (!conflict) {
-            isLivre = true;
-            pickedBarberId = bid;
+        let conflict = false;
+        
+        for (const blk of barberBlocks) {
+          const blkStart = toMin(blk.hora_inicio);
+          const blkEnd = toMin(blk.hora_fim);
+          if (t < blkEnd && (t + duracaoTotal) > blkStart) {
+            conflict = true;
             break;
           }
         }
         
-        daySlots.push({ hora: fromMin(t), livre: isLivre, realBarberId: pickedBarberId || undefined });
+        if (!conflict) {
+          for (const appt of barberAppts) {
+            const apptStart = toDateMin(appt.data_hora_inicio);
+            const apptEnd = toDateMin(appt.data_hora_fim);
+            if (t < (apptEnd + buffer) && (t + duracaoTotal + buffer) > apptStart) {
+              conflict = true;
+              break;
+            }
+          }
+        }
+        
+        if (!conflict) {
+          isLivre = true;
+          pickedBarberId = bid;
+          break;
+        }
       }
-      
-      setSlots(daySlots);
+      daySlots.push({ hora: fromMin(t), livre: isLivre, realBarberId: pickedBarberId || undefined });
     }
-    fetchSlots();
-  }, [selectedServices, barber, date, step, shopSettings]);
+    return daySlots;
+  }, [appointmentsCache, blocksCache, date, selectedServices, barber, step, shopSettings, barbers]);
 
   async function confirmar() {
     if (selectedServices.length === 0 || !hora) return;
-    setLoadingConfig(true);
+    setSubmitting(true);
     
     // Obter o ID real do barbeiro caso seja "auto"
     let realBarberId = barber === "auto" ? slots.find(s => s.hora === hora)?.realBarberId : barber?.id;
@@ -272,7 +269,7 @@ function AgendarPage() {
 
     if (error) {
       toast.error("Erro ao agendar: " + error.message);
-      setLoadingConfig(false);
+      setSubmitting(false);
       return;
     }
 
@@ -378,7 +375,7 @@ function AgendarPage() {
                 Próximo Passo
               </button>
             )}
-            {services.length === 0 && !loadingConfig && (
+            {services.length === 0 && (
               <p className="text-center text-sm text-muted-foreground">Nenhum serviço disponível.</p>
             )}
           </div>
@@ -578,7 +575,7 @@ function AgendarPage() {
           )}
           {step === 4 && (
             <button
-              disabled={nome.trim().length < 2 || tel.trim().length < 8}
+              disabled={nome.trim().length < 2 || tel.trim().length < 8 || submitting}
               onClick={confirmar}
               className="flex h-14 w-full items-center justify-center rounded-md gold-gradient font-bold uppercase tracking-wider text-primary-foreground disabled:opacity-40"
             >
