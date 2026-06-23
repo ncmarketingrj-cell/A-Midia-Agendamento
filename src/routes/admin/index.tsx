@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Copy, CheckCircle2, Clock, User, Phone, Check, X, Calendar as CalIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Copy, CheckCircle2, Clock, User, Phone, Check, X, Calendar as CalIcon, ChevronLeft, ChevronRight, QrCode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -17,6 +18,12 @@ function AdminDashboard() {
   const [appointments, setAppointments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+
+  // Check-in Modal State
+  const [isCheckinOpen, setIsCheckinOpen] = useState(false)
+  const [checkinCode, setCheckinCode] = useState('')
+  const [checkinError, setCheckinError] = useState('')
+  const [foundAppt, setFoundAppt] = useState<any>(null)
 
   useEffect(() => {
     fetchDashboardData(selectedDate)
@@ -70,6 +77,34 @@ function AdminDashboard() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleValidateCode = async () => {
+    setCheckinError('')
+    if (checkinCode.length < 4) return
+    
+    // Procura o agendamento no banco pelo codigo e que não esteja cancelado/finalizado
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*, services(nome, preco), barbers(nome)')
+      .eq('codigo_confirmacao', checkinCode)
+      .eq('status', 'agendado')
+      .maybeSingle()
+      
+    if (error || !data) {
+      setCheckinError('Código inválido ou agendamento não encontrado.')
+      setFoundAppt(null)
+    } else {
+      setFoundAppt(data)
+    }
+  }
+
+  const confirmCheckin = async () => {
+    if (!foundAppt) return
+    await updateStatus(foundAppt.id, 'finalizado')
+    setIsCheckinOpen(false)
+    setCheckinCode('')
+    setFoundAppt(null)
+  }
+
   return (
     <main className="flex-1 p-8 overflow-y-auto">
       <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -78,13 +113,23 @@ function AdminDashboard() {
           <p className="text-gray-400">Resumo de hoje</p>
         </div>
         
-        <Button 
-          onClick={copyPublicLink}
-          className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold flex items-center gap-2"
-        >
-          {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          {copied ? 'Copiado!' : 'Copiar Link para Clientes'}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => { setIsCheckinOpen(true); setCheckinCode(''); setFoundAppt(null); setCheckinError(''); }}
+            className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold flex items-center gap-2"
+          >
+            <QrCode className="h-4 w-4" />
+            Validar Chegada
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={copyPublicLink}
+            className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10 font-bold flex items-center gap-2"
+          >
+            {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? 'Copiado!' : 'Copiar Link'}
+          </Button>
+        </div>
       </header>
 
       {/* Dashboard Cards */}
@@ -174,6 +219,57 @@ function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Check-in Modal */}
+      {isCheckinOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-sm bg-[#111] border border-[#222] rounded-xl p-6 text-center">
+            <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-[#1A1A1A] text-[#D4AF37]">
+              <QrCode className="h-8 w-8" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2 text-white">Validar Chegada</h2>
+            <p className="text-gray-400 text-sm mb-6">Digite o código de 4 dígitos fornecido pelo cliente.</p>
+            
+            {!foundAppt ? (
+              <div className="space-y-4">
+                <Input 
+                  autoFocus
+                  maxLength={4}
+                  value={checkinCode}
+                  onChange={e => setCheckinCode(e.target.value)}
+                  onKeyUp={e => e.key === 'Enter' && handleValidateCode()}
+                  placeholder="0000"
+                  className="bg-[#1A1A1A] border-[#333] text-center text-4xl tracking-widest py-8 font-mono placeholder:text-gray-600 focus:border-[#D4AF37]"
+                />
+                {checkinError && <p className="text-red-400 text-sm">{checkinError}</p>}
+                
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setIsCheckinOpen(false)} className="flex-1 border-[#333] text-white hover:bg-[#1A1A1A]">Cancelar</Button>
+                  <Button onClick={handleValidateCode} className="flex-1 bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold">Buscar</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 text-left">
+                <div className="bg-[#1A1A1A] p-4 rounded-lg border border-[#333]">
+                  <p className="text-sm text-gray-400 uppercase tracking-wider mb-1">Cliente Encontrado</p>
+                  <p className="text-2xl font-bold text-[#D4AF37] mb-2">{foundAppt.cliente_nome}</p>
+                  <div className="text-sm text-gray-300 space-y-1">
+                    <p><span className="text-gray-500">Serviço:</span> {foundAppt.services?.nome}</p>
+                    <p><span className="text-gray-500">Barbeiro:</span> {foundAppt.barbers?.nome}</p>
+                    <p><span className="text-gray-500">Horário:</span> {format(parseISO(foundAppt.data_hora_inicio), 'dd/MM/yyyy HH:mm')}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setFoundAppt(null)} className="flex-1 border-[#333] text-white hover:bg-[#1A1A1A]">Voltar</Button>
+                  <Button onClick={confirmCheckin} className="flex-1 bg-green-500 hover:bg-green-600 text-black font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" /> Concluir
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   )
 }

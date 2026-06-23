@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, MapPin, Calendar } from "lucide-react";
+import { Check, MapPin, Calendar, Download } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 type Search = {
   codigo: string;
@@ -27,6 +29,17 @@ export const Route = createFileRoute("/sucesso")({
 
 function SucessoPage() {
   const { codigo, nome, servico, barbeiro, data, hora } = Route.useSearch();
+  const [endereco, setEndereco] = useState("Carregando endereço...");
+  
+  useEffect(() => {
+    async function loadAddress() {
+      const { data } = await supabase.from('shop_settings').select('endereco').limit(1).single();
+      if (data?.endereco) setEndereco(data.endereco);
+      else setEndereco("Rua do Corte, 123 — Rio de Janeiro");
+    }
+    loadAddress();
+  }, []);
+
   const dataFmt = data
     ? new Date(data + "T00:00:00").toLocaleDateString("pt-BR", {
         weekday: "long",
@@ -34,6 +47,43 @@ function SucessoPage() {
         month: "long",
       })
     : "—";
+
+  const downloadICS = () => {
+    if (!data || !hora) return;
+    const [h, m] = hora.split(":").map(Number);
+    const [y, mth, d] = data.split("-").map(Number);
+    const startDate = new Date(y, mth - 1, d, h, m, 0);
+    const endDate = new Date(startDate);
+    endDate.setMinutes(endDate.getMinutes() + 40); // estimate 40 min
+
+    const formatICSDate = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    };
+
+    const icsContent = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//AMidiaBarbearia//PT",
+      "BEGIN:VEVENT",
+      `UID:${Date.now()}@amidiabarbearia.com`,
+      `DTSTAMP:${formatICSDate(new Date())}`,
+      `DTSTART:${formatICSDate(startDate)}`,
+      `DTEND:${formatICSDate(endDate)}`,
+      `SUMMARY:Agendamento A Mídia: ${servico} com ${barbeiro}`,
+      `LOCATION:${endereco}`,
+      `DESCRIPTION:Seu agendamento foi confirmado. Código de confirmação: ${codigo}`,
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ].join("\n");
+
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute("download", `agendamento_${data}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <main className="relative flex min-h-screen flex-col items-center px-4 py-10">
@@ -67,12 +117,12 @@ function SucessoPage() {
             <MapPin className="h-4 w-4 text-gold" /> A Mídia Barbearia
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Rua do Corte, 123 — Rio de Janeiro
+            {endereco}
           </p>
         </div>
 
         <div className="mt-8 flex w-full flex-col gap-2">
-          <button className="flex h-12 items-center justify-center gap-2 rounded-md border border-gold/40 bg-card text-sm font-semibold uppercase tracking-wider text-gold">
+          <button onClick={downloadICS} className="flex h-12 items-center justify-center gap-2 rounded-md border border-gold/40 bg-card text-sm font-semibold uppercase tracking-wider text-gold hover:bg-gold/10 transition-colors">
             <Calendar className="h-4 w-4" /> Adicionar ao calendário
           </button>
           <Link

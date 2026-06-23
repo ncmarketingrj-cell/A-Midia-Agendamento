@@ -217,10 +217,10 @@ function AgendarPage() {
 
     const codigo = gerarCodigo();
     
-    // Parse start and end times to ISO string for timestamptz
+    // Parse start and end times to ISO string for timestamptz correctly in local timezone
     const [h, m] = hora.split(":").map(Number);
-    const startDt = new Date(date);
-    startDt.setHours(h, m, 0, 0);
+    const [y, mth, d] = date.split("-").map(Number);
+    const startDt = new Date(y, mth - 1, d, h, m, 0, 0);
     const dataHoraInicio = startDt.toISOString();
     
     const endDt = new Date(startDt);
