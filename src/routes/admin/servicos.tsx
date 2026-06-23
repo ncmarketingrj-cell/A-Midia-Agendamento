@@ -41,6 +41,55 @@ function ServicosAdmin() {
       return
     }
     fetchServices()
+    
+    // Auto-Force Sync as requested by user
+    const forceSync = async () => {
+      const syncDone = localStorage.getItem('force_sync_services_v3');
+      if (!syncDone) {
+        toast.info("Sincronizando tabela de serviços automaticamente...", { duration: 5000 });
+        try {
+          const newServices = [
+            { nome: 'Cabelo + Barba', preco: 60, duracao_minutos: 60, ativo: true },
+            { nome: 'Corte Máquina', preco: 35, duracao_minutos: 30, ativo: true },
+            { nome: 'Corte Máquina e Tesoura', preco: 40, duracao_minutos: 40, ativo: true },
+            { nome: 'Pigmentação', preco: 20, duracao_minutos: 30, ativo: true },
+            { nome: 'Corte + Pigmentação', preco: 60, duracao_minutos: 60, ativo: true },
+            { nome: 'Barba', preco: 25, duracao_minutos: 30, ativo: true },
+            { nome: 'Corte Reflexo', preco: 80, duracao_minutos: 90, ativo: true },
+            { nome: 'Sobrancelha', preco: 15, duracao_minutos: 15, ativo: true },
+            { nome: 'Pezinho', preco: 10, duracao_minutos: 15, ativo: true },
+            { nome: 'Corte Completo (Máq/Tes/Nav)', preco: 45, duracao_minutos: 50, ativo: true }
+          ];
+
+          // 1. Apagar vinculos antigos
+          await supabase.from('barber_services').delete().neq('service_id', '00000000-0000-0000-0000-000000000000');
+          // 2. Apagar servicos antigos
+          await supabase.from('services').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          
+          // 3. Inserir novos
+          const { error } = await supabase.from('services').insert(newServices);
+          if (error) throw error;
+
+          // 4. Vincular todos os novos aos barbeiros ativos
+          const { data: activeServices } = await supabase.from('services').select('id').eq('ativo', true);
+          const { data: barbers } = await supabase.from('barbers').select('id').eq('ativo', true);
+          if (activeServices && barbers) {
+            for (const b of barbers) {
+              const links = activeServices.map(as => ({ barber_id: b.id, service_id: as.id }));
+              await supabase.from('barber_services').insert(links);
+            }
+          }
+          
+          localStorage.setItem('force_sync_services_v3', 'true');
+          toast.success("Tabela de serviços atualizada com sucesso!");
+          fetchServices();
+        } catch (e: any) {
+          console.error(e);
+          toast.error("Erro no auto-sync: " + e.message);
+        }
+      }
+    };
+    forceSync();
   }, [role])
 
   const fetchServices = async () => {
