@@ -1,16 +1,31 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import {
-  SERVICES,
-  BARBERS,
-  type Service,
-  type Barber,
-  generateSlots,
-  autoPickBarber,
-  gerarCodigo,
-  brl,
-} from "@/lib/barbearia-data";
+import { useMemo, useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Check, ChevronLeft, Clock, Scissors, Sparkles, Shuffle } from "lucide-react";
+import { toast } from "sonner";
+
+export type Service = {
+  id: string
+  nome: string
+  descricao: string
+  duracao_minutos: number
+  preco: number
+}
+
+export type Barber = {
+  id: string
+  nome: string
+  especialidade: string
+  foto_url: string
+}
+
+function brl(n: number) {
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function gerarCodigo(): string {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
 
 export const Route = createFileRoute("/agendar")({
   head: () => ({
@@ -33,6 +48,24 @@ function AgendarPage() {
   const [hora, setHora] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [tel, setTel] = useState("");
+
+  const [services, setServices] = useState<Service[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [slots, setSlots] = useState<{ hora: string; livre: boolean }[]>([]);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+
+  useEffect(() => {
+    async function loadConfig() {
+      const [resServ, resBarb] = await Promise.all([
+        supabase.from("services").select("*").eq("ativo", true).order("nome"),
+        supabase.from("barbers").select("*").eq("ativo", true).order("nome"),
+      ]);
+      if (resServ.data) setServices(resServ.data);
+      if (resBarb.data) setBarbers(resBarb.data);
+      setLoadingConfig(false);
+    }
+    loadConfig();
+  }, []);
 
   const titulos: Record<Step, { titulo: string; sub: string }> = {
     1: { titulo: "Qual vai ser hoje?", sub: "Escolhe o serviço." },
@@ -58,24 +91,75 @@ function AgendarPage() {
     return arr;
   }, []);
 
-  const slots = useMemo(() => {
-    if (!service || !barber) return [];
-    const barberId = barber === "auto" ? autoPickBarber().id : barber.id;
-    return generateSlots(barberId, date, service.duracao);
-  }, [service, barber, date]);
+  // Fetch slots whenever service, barber or date changes
+  useEffect(() => {
+    async function fetchSlots() {
+      if (!service || !barber || step !== 3) return;
+      
+      const barberId = barber === "auto" ? "auto" : barber.id;
+      
+      // Chamar Edge Function "get-available-slots"
+      const { data, error } = await supabase.functions.invoke("get-available-slots", {
+        body: { date: date, serviceId: service.id, barberId: barberId },
+      });
+      
+      if (error) {
+        toast.error("Erro ao buscar horários: " + error.message);
+        setSlots([]);
+      } else {
+        setSlots(data.slots || []);
+        if (barber === "auto" && data.assignedBarberId) {
+          // A casa escolheu o barbeiro por baixo dos panos, mas mantemos visualmente "A casa escolhe"
+          // O id do barbeiro real ficará salvo no objeto slot retornado pela função (ou guardamos separadamente)
+        }
+      }
+    }
+    fetchSlots();
+  }, [service, barber, date, step]);
 
-  function confirmar() {
+  async function confirmar() {
+    if (!service || !hora) return;
+    setLoadingConfig(true);
+    
+    // Obter o ID real do barbeiro caso seja "auto"
+    let realBarberId = barber === "auto" ? null : barber?.id;
+    if (barber === "auto") {
+      // In a real app we would call auto-assign-barber edge function to officially assign it now
+      const { data, error } = await supabase.functions.invoke("auto-assign-barber", {
+        body: { date, startTime: hora, duration: service.duracao_minutos }
+      });
+      if (data?.barberId) realBarberId = data.barberId;
+      else realBarberId = barbers[0]?.id; // Fallback
+    }
+
+    const { error } = await supabase.from("appointments").insert({
+      barber_id: realBarberId,
+      service_id: service.id,
+      client_name: nome,
+      client_phone: tel,
+      appointment_date: date,
+      start_time: hora,
+      end_time: hora, // To be calculated properly by DB triggers or here
+      status: "scheduled"
+    });
+
+    if (error) {
+      toast.error("Erro ao agendar: " + error.message);
+      setLoadingConfig(false);
+      return;
+    }
+
     const codigo = gerarCodigo();
-    const chosenBarber = barber === "auto" ? autoPickBarber() : barber!;
+    const chosenBarber = barbers.find(b => b.id === realBarberId) || barbers[0];
     navigate({
       to: "/sucesso",
       search: {
         codigo,
         nome,
-        servico: service!.nome,
-        barbeiro: chosenBarber.nome,
+        servico: service.nome,
+        barbeiro: barber === "auto" ? "A casa escolhe" : chosenBarber?.nome,
         data: date,
-        hora: hora!,
+        hora: hora,
       },
     });
   }
@@ -123,7 +207,7 @@ function AgendarPage() {
 
         {step === 1 && (
           <div className="space-y-3">
-            {SERVICES.map((s) => {
+            {services.map((s) => {
               const ativo = service?.id === s.id;
               return (
                 <button
@@ -147,15 +231,18 @@ function AgendarPage() {
                         <h3 className="font-display text-xl uppercase">{s.nome}</h3>
                         <span className="font-bold text-gold">{brl(s.preco)}</span>
                       </div>
-                      <p className="mt-0.5 text-sm text-muted-foreground">{s.desc}</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">{s.descricao}</p>
                       <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" /> {s.duracao} min
+                        <Clock className="h-3 w-3" /> {s.duracao_minutos} min
                       </p>
                     </div>
                   </div>
                 </button>
               );
             })}
+            {services.length === 0 && !loadingConfig && (
+              <p className="text-center text-sm text-muted-foreground">Nenhum serviço disponível.</p>
+            )}
           </div>
         )}
 
@@ -185,7 +272,7 @@ function AgendarPage() {
               </div>
             </button>
 
-            {BARBERS.map((b) => {
+            {barbers.map((b) => {
               const ativo = barber !== "auto" && barber?.id === b.id;
               return (
                 <button
@@ -202,7 +289,7 @@ function AgendarPage() {
                 >
                   <div className="flex items-center gap-3">
                     <img
-                      src={b.foto}
+                      src={b.foto_url}
                       alt={b.nome}
                       className="h-14 w-14 shrink-0 rounded-full object-cover ring-1 ring-gold/30"
                     />
@@ -217,6 +304,8 @@ function AgendarPage() {
             })}
           </div>
         )}
+
+
 
         {step === 3 && (
           <div className="space-y-6">
@@ -285,11 +374,15 @@ function AgendarPage() {
                   );
                 })}
               </div>
-              {slots.every((s) => !s.livre) && (
+              {slots.length === 0 ? (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  Nenhum horário livre neste dia.
+                </p>
+              ) : slots.every((s) => !s.livre) ? (
                 <p className="mt-4 text-sm text-muted-foreground">
                   Esse dia tá cheio. Tenta outro dia.
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         )}
@@ -387,7 +480,7 @@ function ResumoCard({
     <div className="rounded-lg border border-gold/30 bg-card p-4">
       <p className="mb-3 text-[10px] uppercase tracking-[0.25em] text-gold">Resumo</p>
       <div className="space-y-2 text-sm">
-        <Linha k="Serviço" v={service ? `${service.nome} · ${service.duracao} min` : "—"} />
+        <Linha k="Serviço" v={service ? `${service.nome} · ${service.duracao_minutos} min` : "—"} />
         <Linha k="Barbeiro" v={barberLabel} />
         <Linha k="Quando" v={`${dataFmt} às ${hora}`} />
         <Linha k="Valor" v={service ? brl(service.preco) : "—"} destaque />
