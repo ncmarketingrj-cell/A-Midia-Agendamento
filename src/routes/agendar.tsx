@@ -17,6 +17,8 @@ export type Barber = {
   nome: string
   especialidade: string
   foto_url: string
+  ativo: boolean
+  barber_services: { service_id: string }[]
 }
 
 function brl(n: number) {
@@ -54,14 +56,18 @@ function AgendarPage() {
   const [slots, setSlots] = useState<{ hora: string; livre: boolean }[]>([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
 
+  const [shopSettings, setShopSettings] = useState<any>(null);
+
   useEffect(() => {
     async function loadConfig() {
-      const [resServ, resBarb] = await Promise.all([
+      const [resServ, resBarb, resShop] = await Promise.all([
         supabase.from("services").select("*").eq("ativo", true).order("nome"),
-        supabase.from("barbers").select("*").eq("ativo", true).order("nome"),
+        supabase.from("barbers").select("*, barber_services(service_id)").eq("ativo", true).order("nome"),
+        supabase.from("shop_settings").select("*").limit(1).single()
       ]);
       if (resServ.data) setServices(resServ.data);
       if (resBarb.data) setBarbers(resBarb.data);
+      if (resShop.data) setShopSettings(resShop.data);
       setLoadingConfig(false);
     }
     loadConfig();
@@ -91,45 +97,122 @@ function AgendarPage() {
     return arr;
   }, []);
 
-  // Fetch slots whenever service, barber or date changes
+  // Fetch slots locally
   useEffect(() => {
     async function fetchSlots() {
-      if (!service || !barber || step !== 3) return;
+      if (!service || !barber || step !== 3 || !shopSettings) return;
       
-      const barberId = barber === "auto" ? "auto" : barber.id;
+      const barberIds = barber === "auto" 
+        ? barbers.filter(b => b.barber_services?.some(s => s.service_id === service.id)).map(b => b.id)
+        : [barber.id];
       
-      // Chamar Edge Function "get-available-slots"
-      const { data, error } = await supabase.functions.invoke("get-available-slots", {
-        body: { date: date, serviceId: service.id, barberId: barberId },
-      });
-      
-      if (error) {
-        toast.error("Erro ao buscar horários: " + error.message);
+      if (barberIds.length === 0) {
         setSlots([]);
-      } else {
-        setSlots(data.slots || []);
-        if (barber === "auto" && data.assignedBarberId) {
-          // A casa escolheu o barbeiro por baixo dos panos, mas mantemos visualmente "A casa escolhe"
-          // O id do barbeiro real ficará salvo no objeto slot retornado pela função (ou guardamos separadamente)
-        }
+        return;
       }
+      
+      // Fetch appointments and blocks for the selected date and barbers
+      const [apptRes, blocksRes] = await Promise.all([
+        supabase.from('appointments')
+          .select('data_hora_inicio, data_hora_fim, barber_id')
+          .gte('data_hora_inicio', `${date}T00:00:00Z`)
+          .lte('data_hora_inicio', `${date}T23:59:59Z`)
+          .in('barber_id', barberIds)
+          .neq('status', 'cancelado'),
+        supabase.from('blocked_times')
+          .select('hora_inicio, hora_fim, barber_id')
+          .eq('data', date)
+          .in('barber_id', barberIds)
+      ]);
+      
+      const appointments = apptRes.data || [];
+      const blocks = blocksRes.data || [];
+      
+      // Configuração de horários
+      const openTime = shopSettings.hora_abertura;
+      const closeTime = shopSettings.hora_fechamento;
+      const buffer = shopSettings.buffer_minutos;
+      
+      const toMin = (hhmm: string) => {
+        const [h, m] = hhmm.split(':').map(Number);
+        return h * 60 + m;
+      };
+      
+      const toDateMin = (isoString: string) => {
+        const d = new Date(isoString);
+        return d.getHours() * 60 + d.getMinutes();
+      };
+      
+      const fromMin = (min: number) => {
+        const h = Math.floor(min / 60).toString().padStart(2, '0');
+        const m = (min % 60).toString().padStart(2, '0');
+        return `${h}:${m}`;
+      };
+      
+      const duracao = service.duracao_minutos;
+      const stepTime = 15;
+      const start = toMin(openTime);
+      const end = toMin(closeTime);
+      
+      const daySlots: { hora: string; livre: boolean; realBarberId?: string }[] = [];
+      
+      for (let t = start; t + duracao <= end; t += stepTime) {
+        let isLivre = false;
+        let pickedBarberId = null;
+        
+        // Verificamos se há PELO MENOS UM barbeiro livre neste horário
+        for (const bid of barberIds) {
+          const barberAppts = appointments.filter(a => a.barber_id === bid);
+          const barberBlocks = blocks.filter(b => b.barber_id === bid);
+          
+          let conflict = false;
+          
+          // Check blocks
+          for (const blk of barberBlocks) {
+            const blkStart = toMin(blk.hora_inicio);
+            const blkEnd = toMin(blk.hora_fim);
+            if (t < blkEnd && (t + duracao) > blkStart) {
+              conflict = true;
+              break;
+            }
+          }
+          
+          // Check appts
+          if (!conflict) {
+            for (const appt of barberAppts) {
+              const apptStart = toDateMin(appt.data_hora_inicio);
+              const apptEnd = toDateMin(appt.data_hora_fim);
+              // Considera buffer após o agendamento
+              if (t < (apptEnd + buffer) && (t + duracao + buffer) > apptStart) {
+                conflict = true;
+                break;
+              }
+            }
+          }
+          
+          if (!conflict) {
+            isLivre = true;
+            pickedBarberId = bid;
+            break;
+          }
+        }
+        
+        daySlots.push({ hora: fromMin(t), livre: isLivre, realBarberId: pickedBarberId || undefined });
+      }
+      
+      setSlots(daySlots);
     }
     fetchSlots();
-  }, [service, barber, date, step]);
+  }, [service, barber, date, step, shopSettings]);
 
   async function confirmar() {
     if (!service || !hora) return;
     setLoadingConfig(true);
     
     // Obter o ID real do barbeiro caso seja "auto"
-    let realBarberId = barber === "auto" ? null : barber?.id;
-    if (barber === "auto") {
-      // In a real app we would call auto-assign-barber edge function to officially assign it now
-      const { data, error } = await supabase.functions.invoke("auto-assign-barber", {
-        body: { date, startTime: hora, duration: service.duracao_minutos }
-      });
-      if (data?.barberId) realBarberId = data.barberId;
-      else realBarberId = barbers[0]?.id; // Fallback
+    let realBarberId = barber === "auto" ? slots.find(s => s.hora === hora)?.realBarberId : barber?.id;
+    if (!realBarberId && barber === "auto") {
+      realBarberId = barbers[0]?.id; // Fallback
     }
 
     const codigo = gerarCodigo();
@@ -284,7 +367,7 @@ function AgendarPage() {
               </div>
             </button>
 
-            {barbers.map((b) => {
+            {barbers.filter(b => b.barber_services?.some(s => s.service_id === service?.id)).map((b) => {
               const ativo = barber !== "auto" && barber?.id === b.id;
               return (
                 <button

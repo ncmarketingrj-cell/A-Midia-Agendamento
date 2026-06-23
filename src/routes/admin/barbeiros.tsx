@@ -12,18 +12,25 @@ export const Route = createFileRoute('/admin/barbeiros')({
   component: BarbeirosAdmin,
 })
 
-type Barber = {
+export type Barber = {
   id: string
   nome: string
   foto_url: string
   especialidade: string
   comissao_percentual: number
   ativo: boolean
+  barber_services?: { service_id: string }[]
+}
+
+export type Service = {
+  id: string
+  nome: string
 }
 
 function BarbeirosAdmin() {
   const { role } = Route.useRouteContext()
   const [barbers, setBarbers] = useState<Barber[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -32,27 +39,33 @@ function BarbeirosAdmin() {
   const [nome, setNome] = useState('')
   const [especialidade, setEspecialidade] = useState('')
   const [fotoUrl, setFotoUrl] = useState('')
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
   const [comissao, setComissao] = useState(50)
+  const [selectedServices, setSelectedServices] = useState<string[]>([])
 
   useEffect(() => {
     if (role !== 'admin') {
       window.location.href = '/admin'
       return
     }
-    fetchBarbers()
+    fetchData()
   }, [role])
 
-  const fetchBarbers = async () => {
-    const { data, error } = await supabase
-      .from('barbers')
-      .select('*')
-      .order('nome')
+  const fetchData = async () => {
+    setLoading(true)
+    const [barbersRes, servicesRes] = await Promise.all([
+      supabase.from('barbers').select('*, barber_services(service_id)').order('nome'),
+      supabase.from('services').select('id, nome').order('nome')
+    ])
     
-    if (error) {
-      toast.error('Erro ao buscar barbeiros: ' + error.message)
+    if (barbersRes.error) {
+      toast.error('Erro ao buscar barbeiros: ' + barbersRes.error.message)
     } else {
-      setBarbers(data || [])
+      setBarbers(barbersRes.data || [])
     }
+    
+    if (servicesRes.data) setServices(servicesRes.data)
+    
     setLoading(false)
   }
 
@@ -60,35 +73,74 @@ function BarbeirosAdmin() {
     e.preventDefault()
     setLoading(true)
     
+    let finalFotoUrl = fotoUrl || 'https://i.pravatar.cc/300';
+    
+    if (fotoFile) {
+      const ext = fotoFile.name.split('.').pop();
+      const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+      const { data, error } = await supabase.storage.from('barber-photos').upload(filename, fotoFile);
+      if (error) {
+        toast.error('Erro ao subir foto: ' + error.message);
+        setLoading(false);
+        return;
+      }
+      const { data: publicData } = supabase.storage.from('barber-photos').getPublicUrl(filename);
+      finalFotoUrl = publicData.publicUrl;
+    }
+
     const payload = {
       nome,
       especialidade,
-      foto_url: fotoUrl || 'https://i.pravatar.cc/300', // Foto padrão
+      foto_url: finalFotoUrl,
       comissao_percentual: comissao,
       ativo: true
     }
 
+    let savedBarberId = editingId;
+
     if (editingId) {
       const { error } = await supabase.from('barbers').update(payload).eq('id', editingId)
-      if (error) toast.error('Erro ao atualizar: ' + error.message)
+      if (error) { toast.error('Erro ao atualizar: ' + error.message); setLoading(false); return; }
       else toast.success('Barbeiro atualizado!')
     } else {
-      const { error } = await supabase.from('barbers').insert(payload)
-      if (error) toast.error('Erro ao cadastrar: ' + error.message)
-      else toast.success('Barbeiro cadastrado com sucesso!')
+      const { data, error } = await supabase.from('barbers').insert(payload).select().single()
+      if (error) { toast.error('Erro ao cadastrar: ' + error.message); setLoading(false); return; }
+      else {
+        toast.success('Barbeiro cadastrado com sucesso!')
+        savedBarberId = data.id
+      }
+    }
+
+    if (savedBarberId) {
+      // Sync barber_services
+      await supabase.from('barber_services').delete().eq('barber_id', savedBarberId)
+      if (selectedServices.length > 0) {
+        const servicesPayload = selectedServices.map(sid => ({ barber_id: savedBarberId, service_id: sid }))
+        await supabase.from('barber_services').insert(servicesPayload)
+      }
     }
 
     setIsModalOpen(false)
     resetForm()
-    fetchBarbers()
+    fetchData()
   }
 
   const toggleAtivo = async (id: string, currentStatus: boolean) => {
     const { error } = await supabase.from('barbers').update({ ativo: !currentStatus }).eq('id', id)
     if (error) toast.error('Erro ao alterar status: ' + error.message)
     else {
-      toast.success(currentStatus ? 'Barbeiro inativado.' : 'Barbeiro ativado.')
-      fetchBarbers()
+      toast.success(currentStatus ? 'Barbeiro pausado.' : 'Barbeiro ativado.')
+      fetchData()
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja EXCLUIR DEFINITIVAMENTE este barbeiro e seu histórico de agendamentos?')) return;
+    const { error } = await supabase.from('barbers').delete().eq('id', id)
+    if (error) toast.error('Erro ao excluir: ' + error.message)
+    else {
+      toast.success('Barbeiro excluído com sucesso.')
+      fetchData()
     }
   }
 
@@ -96,7 +148,9 @@ function BarbeirosAdmin() {
     setNome('')
     setEspecialidade('')
     setFotoUrl('')
+    setFotoFile(null)
     setComissao(50)
+    setSelectedServices(services.map(s => s.id)) // Por padrão todos
     setEditingId(null)
   }
 
@@ -104,7 +158,9 @@ function BarbeirosAdmin() {
     setNome(b.nome)
     setEspecialidade(b.especialidade)
     setFotoUrl(b.foto_url)
+    setFotoFile(null)
     setComissao(b.comissao_percentual)
+    setSelectedServices(b.barber_services?.map(s => s.service_id) || [])
     setEditingId(b.id)
     setIsModalOpen(true)
   }
@@ -153,17 +209,20 @@ function BarbeirosAdmin() {
                       <Check className="w-3 h-3" /> Ativo
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-1 rounded-full">
-                      <X className="w-3 h-3" /> Inativo
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-full" title="Oculto no app público">
+                      <Clock className="w-3 h-3" /> Pausado
                     </span>
                   )}
                 </td>
                 <td className="px-6 py-4 text-right space-x-2">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(b)} className="text-gray-400 hover:text-white">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(b)} className="text-gray-400 hover:text-white" title="Editar">
                     <Edit2 className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => toggleAtivo(b.id, b.ativo)} className={b.ativo ? "text-red-400 hover:text-red-300 hover:bg-red-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"}>
-                    {b.ativo ? <Trash2 className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                  <Button variant="ghost" size="icon" onClick={() => toggleAtivo(b.id, b.ativo)} className={b.ativo ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"} title={b.ativo ? "Pausar" : "Ativar"}>
+                    {b.ativo ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(b.id)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10" title="Excluir Definitivamente">
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </td>
               </tr>
@@ -193,12 +252,35 @@ function BarbeirosAdmin() {
                 <Input required value={especialidade} onChange={e => setEspecialidade(e.target.value)} className="bg-[#1A1A1A] border-[#333]" />
               </div>
               <div>
-                <Label className="text-gray-300">URL da Foto (opcional)</Label>
-                <Input value={fotoUrl} onChange={e => setFotoUrl(e.target.value)} className="bg-[#1A1A1A] border-[#333]" />
+                <Label className="text-gray-300">Foto (JPG/PNG)</Label>
+                <div className="flex items-center gap-4 mt-2">
+                  <img src={fotoFile ? URL.createObjectURL(fotoFile) : (fotoUrl || 'https://i.pravatar.cc/300')} alt="Preview" className="w-14 h-14 rounded-full object-cover border border-[#333]" />
+                  <Input type="file" accept="image/*" onChange={e => setFotoFile(e.target.files?.[0] || null)} className="bg-[#1A1A1A] border-[#333] text-gray-300 cursor-pointer" />
+                </div>
               </div>
               <div>
                 <Label className="text-gray-300">Comissão (%)</Label>
                 <Input required type="number" min="0" max="100" value={comissao} onChange={e => setComissao(Number(e.target.value))} className="bg-[#1A1A1A] border-[#333]" />
+              </div>
+
+              <div>
+                <Label className="text-gray-300 mb-2 block">Serviços Executados</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-[#1A1A1A] border border-[#333] rounded-md">
+                  {services.map(s => (
+                    <label key={s.id} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedServices.includes(s.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedServices([...selectedServices, s.id])
+                          else setSelectedServices(selectedServices.filter(id => id !== s.id))
+                        }}
+                        className="accent-[#D4AF37]"
+                      />
+                      {s.nome}
+                    </label>
+                  ))}
+                </div>
               </div>
               
               <div className="flex gap-3 pt-4">

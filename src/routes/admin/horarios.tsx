@@ -183,6 +183,19 @@ function HorariosAdmin() {
                   <Input required type="time" value={horaFim} onChange={e => setHoraFim(e.target.value)} className="bg-[#1A1A1A] border-[#333] [color-scheme:dark]" />
                 </div>
               </div>
+              
+              <div className="flex justify-end">
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => { setHoraInicio('12:00'); setHoraFim('13:00'); setMotivo('Almoço'); }}
+                  className="text-[#D4AF37] hover:text-[#B8972D] hover:bg-[#D4AF37]/10 h-8 px-2 text-xs"
+                >
+                  <Clock className="w-3 h-3 mr-1" />
+                  Preencher Horário de Almoço
+                </Button>
+              </div>
 
               <div>
                 <Label className="text-gray-300">Motivo (Opcional)</Label>
