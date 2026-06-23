@@ -485,9 +485,11 @@ function AgendarPage() {
                     return (
                       <div
                         key={s.hora}
-                        className="relative grid h-12 place-items-center rounded-md border border-border bg-secondary/40 text-sm text-muted-foreground line-through"
+                        className="relative flex flex-col items-center justify-center h-12 rounded-md border border-red-900/20 bg-red-950/10 text-muted-foreground opacity-80 cursor-not-allowed"
+                        title="Horário Indisponível"
                       >
-                        {s.hora}
+                        <span className="text-sm font-medium line-through">{s.hora}</span>
+                        <span className="text-[9px] uppercase tracking-wider text-red-400 font-bold -mt-0.5">Ocupado</span>
                       </div>
                     );
                   }
