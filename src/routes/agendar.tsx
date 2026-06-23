@@ -132,15 +132,28 @@ function AgendarPage() {
       else realBarberId = barbers[0]?.id; // Fallback
     }
 
+    const codigo = gerarCodigo();
+    
+    // Parse start and end times to ISO string for timestamptz
+    const [h, m] = hora.split(":").map(Number);
+    const startDt = new Date(date);
+    startDt.setHours(h, m, 0, 0);
+    const dataHoraInicio = startDt.toISOString();
+    
+    const endDt = new Date(startDt);
+    endDt.setMinutes(endDt.getMinutes() + service.duracao_minutos);
+    const dataHoraFim = endDt.toISOString();
+
     const { error } = await supabase.from("appointments").insert({
       barber_id: realBarberId,
       service_id: service.id,
-      client_name: nome,
-      client_phone: tel,
-      appointment_date: date,
-      start_time: hora,
-      end_time: hora, // To be calculated properly by DB triggers or here
-      status: "scheduled"
+      cliente_nome: nome,
+      telefone: tel,
+      data_hora_inicio: dataHoraInicio,
+      data_hora_fim: dataHoraFim,
+      codigo_confirmacao: codigo,
+      preco_cobrado: service.preco,
+      status: "agendado"
     });
 
     if (error) {
@@ -149,7 +162,6 @@ function AgendarPage() {
       return;
     }
 
-    const codigo = gerarCodigo();
     const chosenBarber = barbers.find(b => b.id === realBarberId) || barbers[0];
     navigate({
       to: "/sucesso",

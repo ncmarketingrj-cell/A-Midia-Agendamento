@@ -17,6 +17,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminServicosRouteImport } from './routes/admin/servicos'
+import { Route as AdminHorariosRouteImport } from './routes/admin/horarios'
 import { Route as AdminBarbeirosRouteImport } from './routes/admin/barbeiros'
 
 const SucessoRoute = SucessoRouteImport.update({
@@ -59,6 +60,11 @@ const AdminServicosRoute = AdminServicosRouteImport.update({
   path: '/servicos',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminHorariosRoute = AdminHorariosRouteImport.update({
+  id: '/horarios',
+  path: '/horarios',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminBarbeirosRoute = AdminBarbeirosRouteImport.update({
   id: '/barbeiros',
   path: '/barbeiros',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/sucesso': typeof SucessoRoute
   '/admin/barbeiros': typeof AdminBarbeirosRoute
+  '/admin/horarios': typeof AdminHorariosRoute
   '/admin/servicos': typeof AdminServicosRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/sucesso': typeof SucessoRoute
   '/admin/barbeiros': typeof AdminBarbeirosRoute
+  '/admin/horarios': typeof AdminHorariosRoute
   '/admin/servicos': typeof AdminServicosRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/sucesso': typeof SucessoRoute
   '/admin/barbeiros': typeof AdminBarbeirosRoute
+  '/admin/horarios': typeof AdminHorariosRoute
   '/admin/servicos': typeof AdminServicosRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/sucesso'
     | '/admin/barbeiros'
+    | '/admin/horarios'
     | '/admin/servicos'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/sucesso'
     | '/admin/barbeiros'
+    | '/admin/horarios'
     | '/admin/servicos'
     | '/admin'
   id:
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/sucesso'
     | '/admin/barbeiros'
+    | '/admin/horarios'
     | '/admin/servicos'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -200,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminServicosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/horarios': {
+      id: '/admin/horarios'
+      path: '/horarios'
+      fullPath: '/admin/horarios'
+      preLoaderRoute: typeof AdminHorariosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/barbeiros': {
       id: '/admin/barbeiros'
       path: '/barbeiros'
@@ -212,12 +231,14 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminBarbeirosRoute: typeof AdminBarbeirosRoute
+  AdminHorariosRoute: typeof AdminHorariosRoute
   AdminServicosRoute: typeof AdminServicosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminBarbeirosRoute: AdminBarbeirosRoute,
+  AdminHorariosRoute: AdminHorariosRoute,
   AdminServicosRoute: AdminServicosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

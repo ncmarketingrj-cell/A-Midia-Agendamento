@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, Outlet, Link, useNavigate } from '@tanstack/react-router'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
-import { LogOut, Calendar, Users, Scissors } from 'lucide-react'
+import { LogOut, Calendar, Users, Scissors, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/admin')({
@@ -63,6 +63,11 @@ function AdminLayout() {
               <Link to="/admin/servicos" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
                 <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
                   <Scissors className="mr-3 h-5 w-5" /> Serviços
+                </Button>
+              </Link>
+              <Link to="/admin/horarios" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
+                <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
+                  <Clock className="mr-3 h-5 w-5" /> Horários
                 </Button>
               </Link>
             </>
