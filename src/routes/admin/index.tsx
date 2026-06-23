@@ -87,6 +87,12 @@ function AdminDashboard() {
       }
     };
 
+    // Request notification permission on mount if needed
+    if ("Notification" in window && Notification.permission === "default") {
+      // Don't auto-request, let user click the button. 
+      // But we can keep state if we wanted.
+    }
+
     // Realtime Subscriptions
     const channel = supabase
       .channel('public:appointments')
@@ -97,6 +103,7 @@ function AdminDashboard() {
           const hora = appt.data_hora_inicio ? format(parseISO(appt.data_hora_inicio), 'HH:mm') : '';
           const dataStr = appt.data_hora_inicio ? format(parseISO(appt.data_hora_inicio), 'dd/MM/yyyy') : '';
           
+          // Toast inside webapp
           toast(
             <div className="flex flex-col gap-1">
               <p className="font-bold text-lg text-white mb-1">Novo Agendamento!</p>
@@ -110,6 +117,14 @@ function AdminDashboard() {
               style: { background: '#111', borderColor: '#D4AF37', color: 'white' }
             }
           );
+
+          // Native browser push notification
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification('💈 Novo Agendamento!', {
+              body: `Cliente: ${appt.cliente_nome}\nHorário: ${hora}\nServiço: ${appt.servicos_resumo || 'Padrão'}`,
+              icon: '/icon.png' // Adjust if needed
+            });
+          }
         }
         fetchDashboardData(selectedDateRef.current)
       })
@@ -123,25 +138,42 @@ function AdminDashboard() {
   const fetchDashboardData = async (date: Date) => {
     setLoading(true)
     
-    const startOfDay = new Date(date)
-    startOfDay.setHours(0,0,0,0)
+    // Widen query window to avoid timezone cutting off late/early appointments
+    const prevDay = new Date(date);
+    prevDay.setDate(prevDay.getDate() - 1);
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
     
-    const endOfDay = new Date(date)
-    endOfDay.setHours(23,59,59,999)
-    
-    let query = supabase
+    const { data, error } = await supabase
       .from('appointments')
       .select('*, services(nome, preco), barbers(nome)')
-      .gte('data_hora_inicio', startOfDay.toISOString())
-      .lte('data_hora_inicio', endOfDay.toISOString())
+      .gte('data_hora_inicio', `${prevDay.toISOString().split('T')[0]}T00:00:00Z`)
+      .lte('data_hora_inicio', `${nextDay.toISOString().split('T')[0]}T23:59:59Z`)
       .order('data_hora_inicio')
       
-    const { data, error } = await query
-    
     if (!error && data) {
-      setAppointments(data)
+      const localDateNum = new Date(date).getDate();
+      const filtered = data.filter(a => new Date(a.data_hora_inicio).getDate() === localDateNum);
+      setAppointments(filtered)
     }
     setLoading(false)
+  }
+
+  const enableNotifications = () => {
+    if (!("Notification" in window)) {
+      toast.error('Seu navegador não suporta notificações.');
+      return;
+    }
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') {
+        toast.success('Notificações ativadas com sucesso!');
+        new Notification('A Mídia Barbearia', {
+          body: 'Você receberá avisos de novos agendamentos aqui!'
+        });
+      } else {
+        toast.error('Permissão negada. Você não receberá notificações no dispositivo.');
+      }
+    });
   }
 
   const updateStatus = async (id: string, status: string) => {
@@ -319,6 +351,14 @@ function AdminDashboard() {
         </div>
         
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <Button 
+            variant="outline"
+            onClick={enableNotifications}
+            className="flex-1 sm:flex-none border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10 font-bold flex items-center justify-center gap-2"
+            title="Ativar Notificações no Dispositivo"
+          >
+            <span className="text-lg">🔔</span>
+          </Button>
           <Button 
             onClick={() => {
               setNewNome(''); setNewTelefone(''); setNewHora(''); setNewSelectedServices([]);

@@ -124,12 +124,17 @@ function AgendarPage() {
         return;
       }
       
+      const prevDay = new Date(date);
+      prevDay.setDate(prevDay.getDate() - 1);
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+
       // Fetch appointments and blocks for the selected date and barbers
       const [apptRes, blocksRes] = await Promise.all([
         supabase.from('appointments')
           .select('data_hora_inicio, data_hora_fim, barber_id')
-          .gte('data_hora_inicio', `${date}T00:00:00Z`)
-          .lte('data_hora_inicio', `${date}T23:59:59Z`)
+          .gte('data_hora_inicio', `${prevDay.toISOString().split('T')[0]}T00:00:00Z`)
+          .lte('data_hora_inicio', `${nextDay.toISOString().split('T')[0]}T23:59:59Z`)
           .in('barber_id', barberIds)
           .neq('status', 'cancelado'),
         supabase.from('blocked_times')
@@ -138,7 +143,8 @@ function AgendarPage() {
           .in('barber_id', barberIds)
       ]);
       
-      const appointments = apptRes.data || [];
+      const localDateNum = new Date(date + 'T12:00:00').getDate();
+      const appointments = (apptRes.data || []).filter(a => new Date(a.data_hora_inicio).getDate() === localDateNum);
       const blocks = blocksRes.data || [];
       
       // Configuração de horários
