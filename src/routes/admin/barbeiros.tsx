@@ -42,6 +42,8 @@ function BarbeirosAdmin() {
   const [fotoFile, setFotoFile] = useState<File | null>(null)
   const [comissao, setComissao] = useState(50)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
+  const [emailLogin, setEmailLogin] = useState('')
+  const [senhaLogin, setSenhaLogin] = useState('')
 
   useEffect(() => {
     if (role !== 'admin') {
@@ -108,6 +110,19 @@ function BarbeirosAdmin() {
       else {
         toast.success('Barbeiro cadastrado com sucesso!')
         savedBarberId = data.id
+        
+        // Criar login caso tenha sido fornecido
+        if (emailLogin && senhaLogin) {
+          try {
+            const { error: funcError } = await supabase.functions.invoke('create-barber-login', {
+              body: { email: emailLogin, password: senhaLogin, barber_id: savedBarberId, nome: payload.nome }
+            });
+            if (funcError) throw funcError;
+            toast.success('Acesso de login gerado para o barbeiro!');
+          } catch (err: any) {
+            toast.error('O barbeiro foi criado, mas houve erro ao gerar o login: ' + err.message);
+          }
+        }
       }
     }
 
@@ -151,6 +166,8 @@ function BarbeirosAdmin() {
     setFotoFile(null)
     setComissao(50)
     setSelectedServices(services.map(s => s.id)) // Por padrão todos
+    setEmailLogin('')
+    setSenhaLogin('')
     setEditingId(null)
   }
 
@@ -161,6 +178,8 @@ function BarbeirosAdmin() {
     setFotoFile(null)
     setComissao(b.comissao_percentual)
     setSelectedServices(b.barber_services?.map(s => s.service_id) || [])
+    setEmailLogin('')
+    setSenhaLogin('')
     setEditingId(b.id)
     setIsModalOpen(true)
   }
@@ -282,6 +301,23 @@ function BarbeirosAdmin() {
                   ))}
                 </div>
               </div>
+
+              {!editingId && (
+                <div className="pt-4 mt-4 border-t border-[#222]">
+                  <Label className="text-[#D4AF37] mb-4 block font-bold">Acesso ao Painel (Opcional)</Label>
+                  <p className="text-xs text-gray-500 mb-4">Preencha abaixo se quiser que este barbeiro possa fazer login para ver a própria agenda.</p>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-gray-300">E-mail de Acesso</Label>
+                      <Input type="email" placeholder="barbeiro@exemplo.com" value={emailLogin} onChange={e => setEmailLogin(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-gray-300">Senha</Label>
+                      <Input type="password" placeholder="Min. 6 caracteres" minLength={6} value={senhaLogin} onChange={e => setSenhaLogin(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1" />
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 border-[#333] text-white">Cancelar</Button>
