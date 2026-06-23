@@ -279,7 +279,7 @@ function AdminDashboard() {
           <p className="text-gray-400">Resumo de hoje</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Button 
             onClick={() => {
               setNewNome(''); setNewTelefone(''); setNewHora(''); setNewSelectedServices([]);
@@ -287,36 +287,38 @@ function AdminDashboard() {
               else { setNewBarberId(''); }
               setIsNewOpen(true);
             }}
-            className="bg-[#1A1A1A] hover:bg-[#222] border border-[#333] text-white font-bold flex items-center gap-2"
+            className="flex-1 sm:flex-none bg-[#1A1A1A] hover:bg-[#222] border border-[#333] text-white font-bold flex items-center justify-center gap-2"
           >
             <Plus className="h-4 w-4" />
             Novo
           </Button>
           <Button 
             onClick={() => { setIsCheckinOpen(true); setCheckinCode(''); setFoundAppt(null); setCheckinError(''); }}
-            className="bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold flex items-center gap-2"
+            className="flex-1 sm:flex-none bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold flex items-center justify-center gap-2"
           >
             <QrCode className="h-4 w-4" />
-            Validar Chegada
+            <span className="hidden sm:inline">Validar Chegada</span>
+            <span className="sm:hidden">Check-in</span>
           </Button>
           <Button 
             variant="outline"
             onClick={copyPublicLink}
-            className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10 font-bold flex items-center gap-2"
+            className="flex-1 sm:flex-none border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10 font-bold flex items-center justify-center gap-2"
           >
             {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copied ? 'Copiado!' : 'Copiar Link'}
+            <span className="hidden sm:inline">{copied ? 'Copiado!' : 'Copiar Link'}</span>
+            <span className="sm:hidden">{copied ? 'Copiado!' : 'Link'}</span>
           </Button>
         </div>
       </header>
 
       {/* Date Navigation and Filters */}
       <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
-        <div className="flex items-center bg-[#111] border border-[#222] p-2 rounded-xl w-fit">
+        <div className="flex items-center justify-between sm:justify-start bg-[#111] border border-[#222] p-2 rounded-xl w-full sm:w-fit">
           <Button variant="ghost" size="icon" onClick={() => changeDate(-1)} className="hover:bg-[#1A1A1A]">
             <ChevronLeft className="w-5 h-5" />
           </Button>
-          <div className="flex items-center gap-2 font-bold px-4 w-40 justify-center">
+          <div className="flex items-center gap-2 font-bold px-4 sm:w-40 justify-center">
             <CalIcon className="w-4 h-4 text-[#D4AF37]" />
             {format(selectedDate, "dd 'de' MMM", { locale: ptBR })}
           </div>

@@ -139,8 +139,8 @@ function HorariosAdmin() {
             {diasSemana.map(dia => {
               const config = shopSettings.horarios_por_dia[dia.idx] || { abertura: '09:00', fechamento: '20:00', ativo: false };
               return (
-                <div key={dia.idx} className={`flex items-center justify-between p-4 rounded-lg border transition ${config.ativo ? 'border-[#D4AF37] bg-[#D4AF37]/5' : 'border-[#333] bg-[#1A1A1A] opacity-70'}`}>
-                  <div className="flex items-center gap-4 w-48">
+                <div key={dia.idx} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border transition gap-4 sm:gap-0 ${config.ativo ? 'border-[#D4AF37] bg-[#D4AF37]/5' : 'border-[#333] bg-[#1A1A1A] opacity-70'}`}>
+                  <div className="flex items-center gap-4 w-full sm:w-48">
                     <button 
                       onClick={() => {
                         const newConfig = { ...shopSettings.horarios_por_dia };
@@ -155,8 +155,8 @@ function HorariosAdmin() {
                   </div>
                   
                   {config.ativo ? (
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col">
+                    <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                      <div className="flex flex-col flex-1 sm:flex-none">
                         <span className="text-[10px] uppercase text-gray-500 font-bold mb-1">Abertura</span>
                         <Input 
                           type="time" 
@@ -166,11 +166,11 @@ function HorariosAdmin() {
                             newConfig[dia.idx] = { ...config, abertura: e.target.value };
                             setShopSettings({...shopSettings, horarios_por_dia: newConfig});
                           }}
-                          className="bg-black border-[#444] h-9 w-32 [color-scheme:dark]"
+                          className="bg-black border-[#444] h-9 w-full sm:w-32 [color-scheme:dark]"
                         />
                       </div>
                       <span className="text-gray-500 mt-5">-</span>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col flex-1 sm:flex-none">
                         <span className="text-[10px] uppercase text-gray-500 font-bold mb-1">Fechamento</span>
                         <Input 
                           type="time" 
@@ -180,7 +180,7 @@ function HorariosAdmin() {
                             newConfig[dia.idx] = { ...config, fechamento: e.target.value };
                             setShopSettings({...shopSettings, horarios_por_dia: newConfig});
                           }}
-                          className="bg-black border-[#444] h-9 w-32 [color-scheme:dark]"
+                          className="bg-black border-[#444] h-9 w-full sm:w-32 [color-scheme:dark]"
                         />
                       </div>
                     </div>
