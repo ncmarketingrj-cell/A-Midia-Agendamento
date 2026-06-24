@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, Outlet, Link, useNavigate } from '@tanstack/react-router'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
-import { LogOut, Calendar, Users, Scissors, Clock, MessageCircle, UserCheck, Smartphone } from 'lucide-react'
+import { LogOut, Calendar, Users, Scissors, Clock, MessageCircle, UserCheck, Smartphone, DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/admin')({
@@ -58,6 +58,11 @@ function AdminLayout() {
               <Link to="/admin/barbeiros" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
                 <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
                   <Users className="mr-3 h-5 w-5" /> Barbeiros
+                </Button>
+              </Link>
+              <Link to="/admin/faturamento" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
+                <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
+                  <DollarSign className="mr-3 h-5 w-5" /> Faturamento
                 </Button>
               </Link>
               <Link to="/admin/clientes" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">

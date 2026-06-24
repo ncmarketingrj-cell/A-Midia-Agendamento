@@ -301,72 +301,94 @@ function AdminDashboard() {
       toast.error('Selecione pelo menos um serviço!');
       return;
     }
-    setLoading(true)
     
-    const [h, m] = newHora.split(":").map(Number);
-    const [y, mth, d] = newData.split("-").map(Number);
-    const startDt = new Date(y, mth - 1, d, h, m, 0, 0);
-    const dataHoraInicio = startDt.toISOString();
-    
-    // Obter os serviços selecionados do array de estado global 'services'
-    const servicosObj = services.filter(s => newSelectedServices.includes(s.id));
-    const duracaoTotal = servicosObj.reduce((acc, s) => acc + s.duracao_minutos, 0);
-    const precoTotal = servicosObj.reduce((acc, s) => acc + s.preco, 0);
-    const servicosNomes = servicosObj.map(s => s.nome).join(' + ');
-
-    const endDt = new Date(startDt);
-    endDt.setMinutes(endDt.getMinutes() + duracaoTotal);
-
-    // O barbeiro final é o selecionado, ou o próprio se não for admin
-    let finalBarberId = newBarberId;
-    if (role !== 'admin' && !finalBarberId) {
-      // Pega o barbeiro atrelado ao usuário
-      // Como o input vai ser oculto ou desativado, newBarberId pode estar vazio.
-      // É mais seguro obrigar a selecionar ou auto-selecionar o do barbers[0] assumindo que ele só ve ele mesmo
-      finalBarberId = barbers[0]?.id;
-    }
-
-    // Verificar conflito de horário
-    const { data: conflitos } = await supabase
-      .from('appointments')
-      .select('id')
-      .eq('barber_id', finalBarberId)
-      .eq('status', 'agendado')
-      .lt('data_hora_inicio', endDt.toISOString())
-      .gt('data_hora_fim', startDt.toISOString());
-
-    if (conflitos && conflitos.length > 0) {
-      toast.error('O barbeiro selecionado já possui um agendamento ativo neste horário!');
-      setLoading(false);
+    if (!newHora || !newData) {
+      toast.error('Data e hora são obrigatórios!');
       return;
     }
 
-    const { error } = await supabase.from('appointments').insert({
-      cliente_nome: newNome,
-      telefone: newTelefone,
-      data_hora_inicio: dataHoraInicio,
-      data_hora_fim: endDt.toISOString(),
-      barber_id: finalBarberId,
-      service_id: servicosObj[0].id, // fallback pro primeiro
-      preco_cobrado: precoTotal,
-      servicos_resumo: servicosNomes,
-      codigo_confirmacao: Math.floor(1000 + Math.random() * 9000).toString(),
-      status: 'agendado'
-    })
+    setLoading(true)
+    
+    try {
+      const [h, m] = newHora.split(":").map(Number);
+      const [y, mth, d] = newData.split("-").map(Number);
+      const startDt = new Date(y, mth - 1, d, h, m, 0, 0);
+      
+      if (isNaN(startDt.getTime())) {
+        toast.error('Data ou hora inválida.');
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
-      toast.error('Erro ao agendar: ' + error.message)
-    } else {
-      toast.success('Novo agendamento criado com sucesso!')
-      setIsNewOpen(false)
-      // Reset form
-      setNewNome('')
-      setNewTelefone('')
-      setNewHora('')
-      setNewSelectedServices([])
-      fetchDashboardData(selectedDate)
+      const dataHoraInicio = startDt.toISOString();
+      
+      const servicosObj = services.filter(s => newSelectedServices.includes(s.id));
+      const duracaoTotal = servicosObj.reduce((acc, s) => acc + s.duracao_minutos, 0);
+      const precoTotal = servicosObj.reduce((acc, s) => acc + s.preco, 0);
+      const servicosNomes = servicosObj.map(s => s.nome).join(' + ');
+
+      const endDt = new Date(startDt);
+      endDt.setMinutes(endDt.getMinutes() + duracaoTotal);
+
+      let finalBarberId = newBarberId;
+      if (role !== 'admin' && !finalBarberId) {
+        finalBarberId = barbers[0]?.id;
+      }
+
+      if (!finalBarberId) {
+        toast.error('Nenhum barbeiro selecionado!');
+        setLoading(false);
+        return;
+      }
+
+      // Verificar conflito de horário
+      const { data: conflitos, error: conflitoError } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('barber_id', finalBarberId)
+        .eq('status', 'agendado')
+        .lt('data_hora_inicio', endDt.toISOString())
+        .gt('data_hora_fim', startDt.toISOString());
+
+      if (conflitoError) throw conflitoError;
+
+      if (conflitos && conflitos.length > 0) {
+        toast.error('O barbeiro selecionado já possui um agendamento ativo neste horário!');
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await supabase.from('appointments').insert({
+        cliente_nome: newNome,
+        telefone: newTelefone,
+        data_hora_inicio: dataHoraInicio,
+        data_hora_fim: endDt.toISOString(),
+        barber_id: finalBarberId,
+        service_id: servicosObj[0].id, // fallback pro primeiro
+        preco_cobrado: precoTotal,
+        servicos_resumo: servicosNomes,
+        codigo_confirmacao: Math.floor(1000 + Math.random() * 9000).toString(),
+        status: 'agendado'
+      })
+
+      if (error) {
+        toast.error('Erro ao agendar: ' + error.message)
+      } else {
+        toast.success('Novo agendamento criado com sucesso!')
+        setIsNewOpen(false)
+        // Reset form
+        setNewNome('')
+        setNewTelefone('')
+        setNewHora('')
+        setNewSelectedServices([])
+        fetchDashboardData(selectedDate)
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Erro de processamento: ' + (err.message || 'Desconhecido'));
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const sendWhatsApp = (templateText: string) => {
