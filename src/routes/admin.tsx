@@ -80,11 +80,6 @@ function AdminLayout() {
                   <Clock className="mr-3 h-5 w-5" /> Horários
                 </Button>
               </Link>
-              <Link to="/admin/whatsapp" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
-                <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
-                  <Smartphone className="mr-3 h-5 w-5" /> Motor WhatsApp
-                </Button>
-              </Link>
             </>
           )}
         </nav>
