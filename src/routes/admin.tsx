@@ -85,6 +85,11 @@ function AdminLayout() {
                   <Clock className="mr-3 h-5 w-5" /> Horários
                 </Button>
               </Link>
+              <Link to="/admin/whatsapp" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
+                <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
+                  <Smartphone className="mr-3 h-5 w-5" /> WhatsApp
+                </Button>
+              </Link>
             </>
           )}
         </nav>
@@ -105,8 +110,13 @@ function AdminLayout() {
       </div>
 
       {/* Bottom Nav Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#111] border-t border-[#222] z-50 flex justify-around p-2 items-center">
-        <Link to="/admin" className="[&.active>button]:text-[#D4AF37] flex-1">
+      <nav 
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-[#111] border-t border-[#222] z-50 flex overflow-x-auto px-2 py-2 items-center gap-1"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        <style dangerouslySetInnerHTML={{__html: `nav::-webkit-scrollbar { display: none; }`}} />
+        
+        <Link to="/admin" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
           <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
             <Calendar className="h-5 w-5" /> <span className="text-[10px]">Agenda</span>
           </Button>
@@ -114,22 +124,37 @@ function AdminLayout() {
         
         {role === 'admin' && (
           <>
-            <Link to="/admin/barbeiros" className="[&.active>button]:text-[#D4AF37] flex-1">
+            <Link to="/admin/faturamento" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
               <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
-                <Users className="h-5 w-5" /> <span className="text-[10px]">Barbeiros</span>
+                <DollarSign className="h-5 w-5" /> <span className="text-[10px]">Receita</span>
               </Button>
             </Link>
-            <Link to="/admin/clientes" className="[&.active>button]:text-[#D4AF37] flex-1">
+            <Link to="/admin/barbeiros" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
+              <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
+                <Users className="h-5 w-5" /> <span className="text-[10px]">Equipe</span>
+              </Button>
+            </Link>
+            <Link to="/admin/clientes" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
               <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
                 <UserCheck className="h-5 w-5" /> <span className="text-[10px]">CRM</span>
               </Button>
             </Link>
-            <Link to="/admin/servicos" className="[&.active>button]:text-[#D4AF37] flex-1">
+            <Link to="/admin/mensagens" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
+              <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
+                <MessageCircle className="h-5 w-5" /> <span className="text-[10px]">Mensagens</span>
+              </Button>
+            </Link>
+            <Link to="/admin/whatsapp" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
+              <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
+                <Smartphone className="h-5 w-5" /> <span className="text-[10px]">WhatsApp</span>
+              </Button>
+            </Link>
+            <Link to="/admin/servicos" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
               <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
                 <Scissors className="h-5 w-5" /> <span className="text-[10px]">Serviços</span>
               </Button>
             </Link>
-            <Link to="/admin/horarios" className="[&.active>button]:text-[#D4AF37] flex-1">
+            <Link to="/admin/horarios" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
               <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
                 <Clock className="h-5 w-5" /> <span className="text-[10px]">Horários</span>
               </Button>
@@ -137,7 +162,7 @@ function AdminLayout() {
           </>
         )}
         
-        <Button variant="ghost" onClick={handleLogout} className="w-full flex-col items-center gap-1 h-auto py-2 text-red-400 hover:text-red-300 flex-1">
+        <Button variant="ghost" onClick={handleLogout} className="w-full flex-col items-center gap-1 h-auto py-2 text-red-400 hover:text-red-300 shrink-0 min-w-[72px]">
           <LogOut className="h-5 w-5" /> <span className="text-[10px]">Sair</span>
         </Button>
       </nav>
