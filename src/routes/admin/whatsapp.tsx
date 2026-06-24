@@ -173,8 +173,8 @@ function WhatsappAdmin() {
   }
 
   return (
-    <main className="flex-1 p-8 overflow-y-auto min-h-screen">
-      <header className="mb-8">
+    <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto min-h-screen">
+      <header className="mb-6 md:mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Smartphone className="h-8 w-8 text-[#D4AF37]" /> Conexão WhatsApp
         </h1>
