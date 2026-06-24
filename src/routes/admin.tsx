@@ -70,11 +70,13 @@ function AdminLayout() {
                   <UserCheck className="mr-3 h-5 w-5" /> CRM / Clientes
                 </Button>
               </Link>
+              {/* 
               <Link to="/admin/mensagens" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
                 <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
                   <MessageCircle className="mr-3 h-5 w-5" /> Mensagens
                 </Button>
               </Link>
+              */}
               <Link to="/admin/servicos" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
                 <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
                   <Scissors className="mr-3 h-5 w-5" /> Serviços
@@ -85,11 +87,13 @@ function AdminLayout() {
                   <Clock className="mr-3 h-5 w-5" /> Horários
                 </Button>
               </Link>
+              {/*
               <Link to="/admin/whatsapp" className="[&.active>button]:bg-[#1A1A1A] [&.active>button]:text-[#D4AF37]">
                 <Button variant="ghost" className="w-full justify-start text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]">
                   <Smartphone className="mr-3 h-5 w-5" /> WhatsApp
                 </Button>
               </Link>
+              */}
             </>
           )}
         </nav>
@@ -139,6 +143,7 @@ function AdminLayout() {
                 <UserCheck className="h-5 w-5" /> <span className="text-[10px]">CRM</span>
               </Button>
             </Link>
+            {/* 
             <Link to="/admin/mensagens" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
               <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
                 <MessageCircle className="h-5 w-5" /> <span className="text-[10px]">Mensagens</span>
@@ -149,6 +154,7 @@ function AdminLayout() {
                 <Smartphone className="h-5 w-5" /> <span className="text-[10px]">WhatsApp</span>
               </Button>
             </Link>
+            */}
             <Link to="/admin/servicos" className="[&.active>button]:text-[#D4AF37] shrink-0 min-w-[72px]">
               <Button variant="ghost" className="w-full flex-col items-center gap-1 h-auto py-2 text-gray-400 hover:text-[#D4AF37]">
                 <Scissors className="h-5 w-5" /> <span className="text-[10px]">Serviços</span>
