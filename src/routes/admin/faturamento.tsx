@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DollarSign, CalendarDays, TrendingUp, Calendar, Scissors, Users, Filter } from 'lucide-react'
 import { toast } from 'sonner'
-import { startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, parseISO, isWithinInterval } from 'date-fns'
+import { startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, parseISO, isWithinInterval, subDays } from 'date-fns'
 
 export const Route = createFileRoute('/admin/faturamento')({
   component: FaturamentoAdmin,
@@ -69,6 +69,22 @@ function FaturamentoAdmin() {
     switch (period) {
       case 'hoje':
         start = startOfDay(now)
+        end = endOfDay(now)
+        break
+      case 'ontem':
+        start = startOfDay(subDays(now, 1))
+        end = endOfDay(subDays(now, 1))
+        break
+      case 'hoje_ontem':
+        start = startOfDay(subDays(now, 1))
+        end = endOfDay(now)
+        break
+      case 'ultimos_3_dias':
+        start = startOfDay(subDays(now, 2))
+        end = endOfDay(now)
+        break
+      case 'ultimos_7_dias':
+        start = startOfDay(subDays(now, 6))
         end = endOfDay(now)
         break
       case 'semana':
@@ -228,6 +244,10 @@ function FaturamentoAdmin() {
                 className="w-full bg-[#1A1A1A] border border-[#333] rounded-lg py-3 pl-10 pr-4 text-white outline-none focus:border-[#D4AF37] transition-colors"
               >
                 <option value="hoje">Hoje</option>
+                <option value="ontem">Ontem</option>
+                <option value="hoje_ontem">Hoje e Ontem</option>
+                <option value="ultimos_3_dias">Últimos 3 Dias</option>
+                <option value="ultimos_7_dias">Últimos 7 Dias</option>
                 <option value="semana">Nesta Semana</option>
                 <option value="mes">Neste Mês</option>
                 <option value="trimestre">Neste Trimestre</option>
