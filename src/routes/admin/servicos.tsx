@@ -44,7 +44,7 @@ function ServicosAdmin() {
     
     // Auto-Force Sync as requested by user
     const forceSync = async () => {
-      const syncDone = localStorage.getItem('force_sync_services_v3');
+      const syncDone = localStorage.getItem('force_sync_services_v4'); // Updated version
       if (!syncDone) {
         toast.info("Sincronizando tabela de serviços automaticamente...", { duration: 5000 });
         try {
@@ -63,8 +63,8 @@ function ServicosAdmin() {
 
           // 1. Apagar vinculos antigos
           await supabase.from('barber_services').delete().neq('service_id', '00000000-0000-0000-0000-000000000000');
-          // 2. Apagar servicos antigos
-          await supabase.from('services').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          // 2. Ocultar servicos antigos (soft delete) para evitar erro de Foreign Key
+          await supabase.from('services').update({ ativo: false }).neq('id', '00000000-0000-0000-0000-000000000000');
           
           // 3. Inserir novos
           const { error } = await supabase.from('services').insert(newServices);
@@ -80,7 +80,7 @@ function ServicosAdmin() {
             }
           }
           
-          localStorage.setItem('force_sync_services_v3', 'true');
+          localStorage.setItem('force_sync_services_v4', 'true');
           toast.success("Tabela de serviços atualizada com sucesso!");
           fetchServices();
         } catch (e: any) {
@@ -96,6 +96,7 @@ function ServicosAdmin() {
     const { data, error } = await supabase
       .from('services')
       .select('*')
+      .eq('ativo', true) // Only fetch active services so "deleted" ones vanish
       .order('nome')
     
     if (error) {
@@ -152,16 +153,14 @@ function ServicosAdmin() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja EXCLUIR DEFINITIVAMENTE este serviço?')) return;
+    if (!confirm('Tem certeza que deseja remover este serviço da lista?')) return;
     
-    // Deleta os vínculos primeiro para evitar erro de Foreign Key
-    await supabase.from('barber_services').delete().eq('service_id', id);
-    
-    const { error } = await supabase.from('services').delete().eq('id', id);
+    // Soft delete to avoid FK constraints but completely hide it from the admin UI
+    const { error } = await supabase.from('services').update({ ativo: false }).eq('id', id);
     if (error) {
-      toast.error('Erro ao excluir (Pode ter agendamentos antigos): ' + error.message);
+      toast.error('Erro ao remover: ' + error.message);
     } else {
-      toast.success('Serviço excluído definitivamente!');
+      toast.success('Serviço removido com sucesso!');
       fetchServices();
     }
   }
@@ -238,10 +237,7 @@ function ServicosAdmin() {
                     <Button variant="ghost" size="icon" onClick={() => openEdit(s)} className="text-gray-400 hover:text-white" title="Editar">
                       <Edit2 className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => toggleAtivo(s.id, s.ativo)} className={s.ativo ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10" : "text-green-400 hover:text-green-300 hover:bg-green-400/10"} title={s.ativo ? "Pausar Serviço" : "Ativar Serviço"}>
-                      {s.ativo ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(s.id)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10" title="Excluir Definitivamente">
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(s.id)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10" title="Excluir">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </td>
