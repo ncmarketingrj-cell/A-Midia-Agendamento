@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Copy, CheckCircle2, Clock, User, Phone, Check, X, Calendar as CalIcon, ChevronLeft, ChevronRight, QrCode, Edit2, Trash2, Plus } from 'lucide-react'
+import { Copy, CheckCircle2, Clock, User, Phone, Check, X, Calendar as CalIcon, ChevronLeft, ChevronRight, QrCode, Edit2, Trash2, Plus, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -50,6 +50,11 @@ function AdminDashboard() {
   const [checkinError, setCheckinError] = useState('')
   const [foundAppt, setFoundAppt] = useState<any>(null)
 
+  // WhatsApp Modal State
+  const [isWaOpen, setIsWaOpen] = useState(false)
+  const [waAppt, setWaAppt] = useState<any>(null)
+  const [templates, setTemplates] = useState<any[]>([])
+
   useEffect(() => {
     fetchDashboardData(selectedDate)
     
@@ -59,6 +64,9 @@ function AdminDashboard() {
     })
     supabase.from('services').select('id, nome, preco').order('nome').then(({data}) => {
       if(data) setServices(data)
+    })
+    supabase.from('message_templates').select('id, titulo, texto').then(({data}) => {
+      if(data) setTemplates(data)
     })
 
     const playNotificationSound = () => {
@@ -342,6 +350,21 @@ function AdminDashboard() {
     setLoading(false)
   }
 
+  const sendWhatsApp = (templateText: string) => {
+    if (!waAppt) return
+    const text = templateText
+      .replace(/\[NOME_CLIENTE\]/g, waAppt.cliente_nome)
+      .replace(/\[SERVICO\]/g, waAppt.servicos_resumo || waAppt.services?.nome || '')
+      .replace(/\[HORA\]/g, format(parseISO(waAppt.data_hora_inicio), 'HH:mm'))
+      .replace(/\[DATA\]/g, format(parseISO(waAppt.data_hora_inicio), 'dd/MM/yyyy'))
+      .replace(/\[BARBEIRO\]/g, waAppt.barbers?.nome || '')
+    
+    const phone = waAppt.telefone.replace(/\D/g, '')
+    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`
+    window.open(url, '_blank')
+    setIsWaOpen(false)
+  }
+
   return (
     <main className="flex-1 p-8 overflow-y-auto">
       <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -481,7 +504,10 @@ function AdminDashboard() {
                       {(app.preco_cobrado || app.services?.preco || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                     {app.status === 'agendado' && (
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap justify-end">
+                        <Button size="icon" variant="outline" className="border-green-500/30 text-green-400 hover:bg-green-500/10" onClick={() => { setWaAppt(app); setIsWaOpen(true); }} title="Enviar WhatsApp">
+                          <MessageCircle className="w-4 h-4" />
+                        </Button>
                         <Button size="icon" variant="outline" className="border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => openEditModal(app)} title="Editar / Encaixe">
                           <Edit2 className="w-4 h-4" />
                         </Button>
@@ -671,6 +697,41 @@ function AdminDashboard() {
                 <Button type="submit" disabled={loading} className="flex-1 bg-[#D4AF37] hover:bg-[#B8972D] text-black font-bold">Criar Agendamento</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Templates Modal */}
+      {isWaOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md bg-[#111] border border-[#222] rounded-xl p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <MessageCircle className="w-6 h-6 text-green-400" /> WhatsApp
+              </h2>
+              <Button variant="ghost" size="icon" onClick={() => setIsWaOpen(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <p className="text-sm text-gray-400 mb-4">Escolha uma mensagem para enviar para <strong className="text-white">{waAppt?.cliente_nome}</strong>:</p>
+            
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+              {templates.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">Nenhum template cadastrado. Acesse a aba Mensagens para criar.</p>
+              ) : (
+                templates.map(t => (
+                  <button 
+                    key={t.id}
+                    onClick={() => sendWhatsApp(t.texto)}
+                    className="w-full text-left p-4 rounded-lg bg-[#1A1A1A] border border-[#333] hover:border-green-500/50 hover:bg-green-500/5 transition-all group"
+                  >
+                    <h3 className="font-bold text-white mb-1 group-hover:text-green-400 transition-colors">{t.titulo}</h3>
+                    <p className="text-xs text-gray-400 line-clamp-2">{t.texto}</p>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
