@@ -54,11 +54,12 @@ function HorariosAdmin() {
   const saveShopSettings = async () => {
     setLoading(true)
     const { error } = await supabase.from('shop_settings').update({
-      horarios_por_dia: shopSettings.horarios_por_dia
+      horarios_por_dia: shopSettings.horarios_por_dia,
+      endereco: shopSettings.endereco
     }).eq('id', shopSettings.id)
     
-    if (error) toast.error('Erro ao salvar horários: ' + error.message)
-    else toast.success('Horários de funcionamento atualizados!')
+    if (error) toast.error('Erro ao salvar configurações: ' + error.message)
+    else toast.success('Configurações da barbearia atualizadas!')
     
     setLoading(false)
   }
@@ -133,6 +134,17 @@ function HorariosAdmin() {
 
       {shopSettings && shopSettings.horarios_por_dia && (
         <section className="bg-[#111] rounded-xl border border-[#222] p-6 mb-8">
+          <div className="flex flex-col mb-6">
+            <h2 className="text-xl font-bold text-[#D4AF37] mb-2">Endereço da Barbearia</h2>
+            <Label className="text-gray-400 mb-2">Este endereço aparecerá na tela de sucesso para o cliente.</Label>
+            <Input 
+              value={shopSettings.endereco || ''} 
+              onChange={e => setShopSettings({...shopSettings, endereco: e.target.value})} 
+              placeholder="Ex: Rua do Corte, 123 — Rio de Janeiro"
+              className="bg-[#1A1A1A] border-[#333] text-white max-w-xl" 
+            />
+          </div>
+
           <h2 className="text-xl font-bold mb-4 text-[#D4AF37]">Horários por Dia da Semana</h2>
           <div className="space-y-3">
             {diasSemana.map(dia => {
