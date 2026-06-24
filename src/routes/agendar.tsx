@@ -188,7 +188,17 @@ function AgendarPage() {
     
     const daySlots: { hora: string; livre: boolean; realBarberId?: string }[] = [];
     
+    const now = new Date();
+    // Comparar apenas a data local para evitar fuso horário quebrando o "hoje"
+    const isToday = date === now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    
     for (let t = start; t + duracaoTotal <= end; t += stepTime) {
+      // Se for hoje e o horário já passou, não renderiza o slot
+      if (isToday && t <= currentMin) {
+        continue;
+      }
+
       let isLivre = false;
       let pickedBarberId = null;
       
