@@ -124,7 +124,7 @@ function AgendarPage() {
       lastDay.setDate(lastDay.getDate() + 1);
 
       const [apptRes, blocksRes] = await Promise.all([
-        supabase.from('appointments')
+        supabase.from('public_appointments_view')
           .select('data_hora_inicio, data_hora_fim, barber_id')
           .gte('data_hora_inicio', `${firstDay.toISOString().split('T')[0]}T00:00:00Z`)
           .lte('data_hora_inicio', `${lastDay.toISOString().split('T')[0]}T23:59:59Z`)

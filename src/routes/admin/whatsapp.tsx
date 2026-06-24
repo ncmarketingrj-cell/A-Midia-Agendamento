@@ -30,7 +30,7 @@ function WhatsappAdmin() {
 
   const fetchSettings = async () => {
     setLoading(true)
-    const { data, error } = await supabase.from('shop_settings').select('id, wpp_api_url, wpp_api_key').limit(1).single()
+    const { data, error } = await supabase.from('shop_secrets').select('id, wpp_api_url, wpp_api_key').limit(1).maybeSingle()
     if (data) {
       setShopSettingsId(data.id)
       setApiUrl(data.wpp_api_url || '')
@@ -51,15 +51,26 @@ function WhatsappAdmin() {
     const cleanUrl = apiUrl.trim().replace(/\/$/, '')
     setApiUrl(cleanUrl)
 
-    const { error } = await supabase.from('shop_settings').update({
-      wpp_api_url: cleanUrl,
-      wpp_api_key: apiKey.trim()
-    }).eq('id', shopSettingsId)
+    let error;
+    if (shopSettingsId) {
+      const res = await supabase.from('shop_secrets').update({
+        wpp_api_url: cleanUrl,
+        wpp_api_key: apiKey.trim()
+      }).eq('id', shopSettingsId)
+      error = res.error;
+    } else {
+      const res = await supabase.from('shop_secrets').insert({
+        wpp_api_url: cleanUrl,
+        wpp_api_key: apiKey.trim()
+      }).select().single()
+      error = res.error;
+      if (res.data) setShopSettingsId(res.data.id);
+    }
 
     if (error) {
       toast.error('Erro ao salvar credenciais: ' + error.message)
     } else {
-      toast.success('Credenciais salvas com sucesso!')
+      toast.success('Credenciais salvas com sucesso no Cofre!')
       checkStatus(cleanUrl, apiKey.trim())
     }
     setLoading(false)
