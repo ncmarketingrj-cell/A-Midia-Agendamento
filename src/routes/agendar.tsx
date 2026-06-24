@@ -276,14 +276,14 @@ function AgendarPage() {
     const chosenBarber = barbers.find(b => b.id === realBarberId) || barbers[0];
     navigate({
       to: "/sucesso",
-      search: {
+      state: {
         codigo,
         nome,
         servico: servicosNomes,
-        barbeiro: barber === "auto" ? "A casa escolhe" : chosenBarber?.nome,
+        barbeiro: chosenBarber.nome,
         data: date,
-        hora: hora,
-      },
+        hora
+      }
     });
   }
 
@@ -366,15 +366,6 @@ function AgendarPage() {
                 </button>
               );
             })}
-            {services.length > 0 && (
-              <button
-                disabled={selectedServices.length === 0}
-                onClick={() => setStep(2)}
-                className="mt-6 flex h-14 w-full items-center justify-center rounded-md gold-gradient font-bold uppercase tracking-wider text-primary-foreground disabled:opacity-40"
-              >
-                Próximo Passo
-              </button>
-            )}
             {services.length === 0 && (
               <p className="text-center text-sm text-muted-foreground">Nenhum serviço disponível.</p>
             )}
@@ -564,6 +555,15 @@ function AgendarPage() {
       {/* sticky CTA */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto max-w-md">
+          {step === 1 && services.length > 0 && (
+            <button
+              disabled={selectedServices.length === 0}
+              onClick={() => setStep(2)}
+              className="mb-3 flex h-14 w-full items-center justify-center rounded-md gold-gradient font-bold uppercase tracking-wider text-primary-foreground disabled:opacity-40"
+            >
+              Próximo Passo
+            </button>
+          )}
           {step === 3 && (
             <button
               disabled={!hora}
@@ -575,7 +575,7 @@ function AgendarPage() {
           )}
           {step === 4 && (
             <button
-              disabled={nome.trim().length < 2 || tel.trim().length < 8 || submitting}
+              disabled={nome.trim().length < 3 || tel.trim().length < 8 || submitting}
               onClick={confirmar}
               className="flex h-14 w-full items-center justify-center rounded-md gold-gradient font-bold uppercase tracking-wider text-primary-foreground disabled:opacity-40"
             >

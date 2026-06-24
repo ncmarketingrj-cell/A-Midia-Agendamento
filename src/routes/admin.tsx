@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/admin')({
   beforeLoad: async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (!user || error) {
       throw redirect({ to: '/login' })
     }
     
@@ -15,7 +15,7 @@ export const Route = createFileRoute('/admin')({
     const { data } = await supabase
       .from('admin_users')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
       
     return { role: (data?.role as 'admin' | 'barbeiro') || null }

@@ -1,26 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter, useNavigate, useLocation } from "@tanstack/react-router";
 import { Check, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Search = {
-  codigo: string;
-  nome: string;
-  servico: string;
-  barbeiro: string;
-  data: string;
-  hora: string;
-};
-
 export const Route = createFileRoute("/sucesso")({
-  validateSearch: (s: Record<string, unknown>): Search => ({
-    codigo: String(s.codigo ?? "----"),
-    nome: String(s.nome ?? ""),
-    servico: String(s.servico ?? ""),
-    barbeiro: String(s.barbeiro ?? ""),
-    data: String(s.data ?? ""),
-    hora: String(s.hora ?? ""),
-  }),
   head: () => ({
     meta: [{ title: "Fechado! · A Mídia Barbearia" }],
   }),
@@ -28,7 +11,18 @@ export const Route = createFileRoute("/sucesso")({
 });
 
 function SucessoPage() {
-  const { codigo, nome, servico, barbeiro, data, hora } = Route.useSearch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as any;
+  
+  useEffect(() => {
+    if (!state || !state.codigo) {
+      navigate({ to: '/cliente' });
+    }
+  }, [state, navigate]);
+
+  const { codigo, nome, servico, barbeiro, data, hora } = state || {};
+
   const [endereco, setEndereco] = useState("Carregando endereço...");
   
   useEffect(() => {

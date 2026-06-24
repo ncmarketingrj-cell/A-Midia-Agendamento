@@ -62,7 +62,7 @@ function AdminDashboard() {
     supabase.from('barbers').select('id, nome').order('nome').then(({data}) => {
       if(data) setBarbers(data)
     })
-    supabase.from('services').select('id, nome, preco').order('nome').then(({data}) => {
+    supabase.from('services').select('id, nome, preco').eq('ativo', true).order('nome').then(({data}) => {
       if(data) setServices(data)
     })
     supabase.from('message_templates').select('id, titulo, texto').then(({data}) => {
@@ -211,12 +211,16 @@ function AdminDashboard() {
     setSelectedDate(newDate)
   }
 
-  const copyPublicLink = () => {
-    const publicUrl = `${window.location.origin}/cliente`
-    navigator.clipboard.writeText(publicUrl)
-    setCopied(true)
-    toast.success('Link público copiado para a área de transferência!')
-    setTimeout(() => setCopied(false), 2000)
+  const copyPublicLink = async () => {
+    try {
+      const publicUrl = `${window.location.origin}/cliente`
+      await navigator.clipboard.writeText(publicUrl)
+      setCopied(true)
+      toast.success('Link público copiado com sucesso!')
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      toast.error('Erro ao copiar. Copie manualmente.')
+    }
   }
 
   const handleValidateCode = async () => {
@@ -320,6 +324,21 @@ function AdminDashboard() {
       // Como o input vai ser oculto ou desativado, newBarberId pode estar vazio.
       // É mais seguro obrigar a selecionar ou auto-selecionar o do barbers[0] assumindo que ele só ve ele mesmo
       finalBarberId = barbers[0]?.id;
+    }
+
+    // Verificar conflito de horário
+    const { data: conflitos } = await supabase
+      .from('appointments')
+      .select('id')
+      .eq('barber_id', finalBarberId)
+      .eq('status', 'agendado')
+      .lt('data_hora_inicio', endDt.toISOString())
+      .gt('data_hora_fim', startDt.toISOString());
+
+    if (conflitos && conflitos.length > 0) {
+      toast.error('O barbeiro selecionado já possui um agendamento ativo neste horário!');
+      setLoading(false);
+      return;
     }
 
     const { error } = await supabase.from('appointments').insert({
@@ -645,7 +664,7 @@ function AdminDashboard() {
             <form onSubmit={handleNewSave} className="space-y-4">
               <div>
                 <label className="text-xs text-gray-400 uppercase">Nome do Cliente</label>
-                <Input required value={newNome} onChange={e => setNewNome(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1" />
+                <Input required minLength={3} value={newNome} onChange={e => setNewNome(e.target.value)} className="bg-[#1A1A1A] border-[#333] mt-1" />
               </div>
               <div>
                 <label className="text-xs text-gray-400 uppercase">WhatsApp</label>

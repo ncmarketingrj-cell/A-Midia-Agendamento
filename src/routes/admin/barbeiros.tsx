@@ -57,7 +57,7 @@ function BarbeirosAdmin() {
     setLoading(true)
     const [barbersRes, servicesRes] = await Promise.all([
       supabase.from('barbers').select('*, barber_services(service_id)').order('nome'),
-      supabase.from('services').select('id, nome').order('nome')
+      supabase.from('services').select('id, nome').eq('ativo', true).order('nome')
     ])
     
     if (barbersRes.error) {
